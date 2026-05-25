@@ -125,3 +125,7 @@
 {"time":"2026-05-24T20:10:31Z","event":"cancelled","task_id":"task-k4d","actor":"pi-agent:tl-statusline"}
 {"time":"2026-05-24T20:14:14Z","event":"note_added","task_id":"task-igi","actor":"pi-agent:tl-statusline"}
 {"time":"2026-05-24T20:14:21Z","event":"closed","task_id":"task-igi","actor":"pi-agent:tl-statusline"}
+{"time":"2026-05-24T20:40:34Z","event":"created","task_id":"task-xa6","actor":"human"}
+{"time":"2026-05-24T20:40:35Z","event":"claimed","task_id":"task-xa6","actor":"main-pc"}
+{"time":"2026-05-24T20:40:48Z","event":"note_added","task_id":"task-xa6","actor":"main-pc"}
+{"time":"2026-05-24T20:40:50Z","event":"closed","task_id":"task-xa6","actor":"main-pc"}
