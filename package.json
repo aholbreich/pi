@@ -10,6 +10,10 @@
     "tl"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aholbreich/pi"
+  },
   "pi": {
     "extensions": [
       "./extensions/tl/index.ts"
