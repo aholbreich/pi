@@ -12,24 +12,30 @@ This package shells out to the local `tl` binary. It does not bundle or install 
 - `tl` available on `PATH`
 - Run Pi from a repository initialized with `tl init` for normal use
 
-## Try locally
-
-From any repository where you want to use TaskLedger:
+## Installation
 
 ```sh
-pi -e /home/aho/git/pi-tl
+pi install npm:@aholbreich/pi-tl
 ```
 
-Or install the local package globally in Pi:
+Or install from local sources:
 
 ```sh
 pi install /home/aho/git/pi-tl
 ```
 
-For project-local installation, run from the project and add `-l`:
+For project-local installation, add `-l`:
 
 ```sh
-pi install -l /home/aho/git/pi-tl
+pi install -l npm:@aholbreich/pi-tl
+```
+
+## Try locally
+
+From any repository where you want to use TaskLedger:
+
+```sh
+pi -e /home/aho/git/pi
 ```
 
 ## Agent usage
