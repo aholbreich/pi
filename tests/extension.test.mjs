@@ -107,12 +107,8 @@ test("extension registers current tools, slash commands, and shortcuts", () => {
 	assert.ok(!commands.has("tl-clean"));
 	assert.ok(!commands.has("tl-history"));
 
-	assert.equal(tools.size, 19);
-	assert.ok(tools.has("tl_list"));
-	assert.equal(tools.get("tl_create").label, "tl:create");
+	assert.deepEqual([...tools.keys()], ["tl_bulk_create"]);
 	assert.equal(tools.get("tl_bulk_create").label, "tl:bulk:create");
-	assert.equal(tools.get("tl_dep_add").label, "tl:dep:add");
-	assert.ok(tools.has("tl_history")); // still useful as an agent tool, just not a slash command
 	assert.equal(shortcuts.size, 2);
 	assert.equal(shortcuts.get("alt+l").description, "Open Task Ledger board");
 	assert.equal(shortcuts.get("alt+t").description, "Toggle Task Ledger overlay");
@@ -247,7 +243,7 @@ test("tl-capture sends rough todos to the agent without creating tasks", async (
 	assert.match(sentMessages[0].message, /Please turn these rough todos into clean tl task ledger tasks/);
 	assert.match(sentMessages[0].message, /fix docs/);
 	assert.match(sentMessages[0].message, /triage flaky tests high/);
-	assert.match(sentMessages[0].message, /use tl_create/i);
+	assert.match(sentMessages[0].message, /tl create/i);
 	assert.deepEqual(notifications, [{ message: "Sent captured todos to the agent for refinement.", level: "info" }]);
 });
 
@@ -395,17 +391,17 @@ test("tl_bulk_create creates tasks sequentially and reports partial failures", a
 	assert.match(result.content[0].text, /Created 1\/2 task\(s\)\./);
 });
 
-test("agent tools keep color disabled by default", async () => {
+test("tl_bulk_create keeps color disabled by default", async () => {
 	const calls = [];
 	const { tools } = registerExtension({
 		exec: async (cmd, args) => {
 			calls.push({ cmd, args });
-			return { code: 0, stdout: "[]", stderr: "" };
+			return { code: 0, stdout: JSON.stringify({ id: "task-1", title: "one" }), stderr: "" };
 		},
 	});
 	const ctx = { cwd: "/repo" };
 
-	await tools.get("tl_list").execute("tool-call", { all: true }, undefined, undefined, ctx);
+	await tools.get("tl_bulk_create").execute("tool-call", { tasks: [{ title: "one" }] }, undefined, undefined, ctx);
 
-	assert.deepEqual(calls[0].args, ["--color", "never", "list", "--json", "--all"]);
+	assert.deepEqual(calls[0].args, ["--color", "never", "create", "--title", "one", "--json"]);
 });

@@ -81,3 +81,10 @@ Feature: Task Ledger board navigation
     When the user requests to cancel that task
     Then the task "task-cancel" is cancelled
     And the board returns to the list view
+
+  Scenario: Remove a task from the detail view with a reason
+    Given the task ledger board is open with a task "task-remove"
+    And the user selects that task and opens its details
+    When the user requests to remove that task
+    Then the task "task-remove" is removed with a reason
+    And the board returns to the list view

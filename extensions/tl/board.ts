@@ -68,7 +68,8 @@ export async function openTaskLedgerBoard(pi: ExtensionAPI, ctx: ExtensionContex
 			}
 			const confirmed = await ctx.ui.confirm("Remove task?", `Remove ${id}? This cannot be undone.`);
 			if (!confirmed) return false;
-			const run = await runTl(pi, ctx, ["remove", id]);
+			const reason = await ctx.ui.input("Reason for removal", "created by mistake");
+			const run = await runTl(pi, ctx, ["remove", id, "--message", reason || "removed from board"]);
 			ctx.ui.notify(run.exitCode === 0 ? `Removed ${id}.` : run.stderr.trim() || `Remove failed`, run.exitCode === 0 ? "info" : "error");
 			return run.exitCode === 0;
 		}),

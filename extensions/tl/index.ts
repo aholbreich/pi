@@ -21,18 +21,18 @@ export default function taskLedgerExtension(pi: ExtensionAPI): void {
 	});
 
 	// Add TaskLedger guidance to the system prompt only for repositories that
-	// already contain `.taskledger/`. If the repo is not initialized, we stay quiet.
+	// already contain `.tl/`. If the repo is not initialized, we stay quiet.
 	pi.on("before_agent_start", (event, ctx) => {
 		if (!hasLedger(ctx)) return;
 		return {
 			systemPrompt:
 				event.systemPrompt +
-				"\n\ntask ledger is available in this repository via the tl_* tools. Prefer tl_ready before choosing queued work; use tl_history/tl_show for context; claim with tl_claim before editing; add tl_note for progress; finish with tl_close, tl_block, tl_pending, tl_cancel, or tl_release as appropriate.",
+				"\n\ntask ledger is available in this repository via the `tl` CLI. Use `tl ready --json` before selecting queued work; inspect with `tl show <id>` and `tl history <id>`; claim with `tl claim <id>` before editing; add progress with `tl note`; finish with `tl close`, `tl block`, `tl pending`, `tl cancel`, or `tl release` as appropriate. Use `tl_bulk_create` only for approved batches of multiple new tasks.",
 		};
 	});
 
 	pi.on("tool_execution_end", async (event, ctx) => {
-		if (!event.toolName.startsWith("tl_") || event.isError) return;
+		if (event.toolName !== "tl_bulk_create" || event.isError) return;
 		await overlay.refresh(ctx);
 	});
 

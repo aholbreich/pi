@@ -23,7 +23,7 @@ Review upstream [`aholbreich/tl`](https://github.com/aholbreich/tl) changes newe
 - Reworked docs: command reference moved into `docs/usage.md` and comparison docs.
 
 Relevance:
-- The extension already asks agents to inspect references, but `tl_refine` cannot add/remove references yet.
+- The extension now asks agents to use the `tl` CLI directly for normal operations, so no wrapper is needed for reference refinement; agents can use `tl refine --add-ref/--remove-ref` directly.
 - No extension change is needed for shell completion, except documentation may mention it as an install/use tip.
 
 ### 0.8.x / 0.8.1
@@ -33,7 +33,7 @@ Relevance:
 - Removed the bare root create shortcut; scripts should use explicit `tl create`.
 
 Relevance:
-- The extension has no `tl_doctor` tool or `/tl-doctor` command, so users cannot easily diagnose ledger corruption from Pi.
+- The extension has no `/tl-doctor` command, but agents can run `tl doctor` directly via the CLI when needed.
 - The repository already uses compact workflow guidance in `AGENTS.md`; README and extension docs can be updated to target 0.8/0.9 rather than 0.6.
 - Existing extension task creation uses explicit `tl create`, so the removed shortcut is not a breaking issue.
 
@@ -52,45 +52,30 @@ Important command behavior:
 - A `removed` event with the reason is recorded before the task file disappears from the active ledger.
 
 Relevance:
-- `/tl-board` now exposes a remove action, but the current implementation should pass a remove reason (`-m/--message`) and may need a force path for non-cancelled tasks.
-- The extension has no agent-callable `tl_remove` tool yet.
-- The existing `tl_history` behavior is improved upstream for removed tasks: history can still resolve via event journal even when the task file no longer exists.
+- `/tl-board` exposes a remove action and now passes a user-provided remove reason (`-m/--message`). A future enhancement may add a deliberate `--force` path for non-cancelled tasks.
+- No agent-callable `tl_remove` wrapper is needed; agents can run `tl remove` directly.
+- The existing `tl history` behavior is improved upstream for removed tasks: history can still resolve via event journal even when the task file no longer exists.
 
 ## Compatibility and breaking-change assessment
 
 - **Low breaking risk for existing tools:** current read/list/create/lifecycle commands continue to exist.
-- **One observed integration gap:** `tl remove` requires `-m/--message`; integrations that call remove without a reason will fail with exit code 2.
-- **Documentation drift:** README claims 0.6.x alignment, while implemented behavior and local CLI are already beyond that.
-- **Schema drift:** task references are part of current task metadata, but the extension exposes only coarse refine fields.
+- **Resolved board integration gap:** `tl remove` requires `-m/--message`; `/tl-board` now collects and passes a reason.
+- **Resolved documentation drift:** README no longer claims broad `tl_*` wrapper alignment and now documents the intentional direct-CLI model.
+- **Reduced schema drift risk:** the extension no longer attempts to mirror most `tl` commands as agent tools.
 
 ## Recommendations
 
-### 1. Fix `/tl-board` remove command reason handling — high priority, small effort
+### 1. Keep normal agent operations on the `tl` CLI — completed
 
-When the user presses `x`, collect a reason (similar to cancel) and run:
+The extension should not mirror `tl ready`, `tl show`, `tl claim`, `tl close`, etc. as Pi tools. Agents can use the CLI directly, and the extension should only keep helpers that add orchestration beyond one CLI command.
 
-```sh
-tl remove <id> -m "<reason>"
-```
+Current retained helper:
 
-Consider a second confirmation or explicit option for `--force`, but default should remain safe and non-force.
+- `tl_bulk_create` for user-approved batch creation with partial-failure reporting.
 
-Estimated effort: small (BDD scenario + one callback change + tests).
+### 2. Consider `/tl-doctor` as a human-facing UX command — medium priority, medium effort
 
-### 2. Add `tl_remove` agent tool — medium priority, small effort
-
-Expose the upstream remove command to agents with parameters:
-
-- `id` (required)
-- `message` (required)
-- `actor` (optional)
-- `force` (optional, documented as destructive)
-
-Estimated effort: small (tool registration + tests/documentation).
-
-### 3. Add `tl_doctor` support — medium priority, medium effort
-
-Add an agent tool and possibly a slash command for:
+A slash command could provide a safe UI around:
 
 ```sh
 tl doctor --json
@@ -98,28 +83,20 @@ tl doctor --fix
 tl doctor --fix --force
 ```
 
-Use conservative UX: diagnostics are safe; repairs should require explicit confirmation, and destructive `--force` should be clearly labeled.
+Use conservative UX: diagnostics are safe; repairs should require explicit confirmation, and destructive `--force` should be clearly labeled. Agents can already run `tl doctor` directly without a wrapper.
 
-Estimated effort: medium (tool + command UX + tests).
+Estimated effort: medium (command UX + tests).
 
-### 4. Extend `tl_refine` for references — medium priority, small effort
+### 3. Add install notes — low priority, small effort
 
-Add optional `addRefs` / `removeRefs` arrays that map to `--add-ref` and `--remove-ref`.
-
-Estimated effort: small.
-
-### 5. Update README target version and install notes — low priority, small effort
-
-Change the README alignment statement from `tl version 0.6.x` to `tl version 0.9.x` once the remove/doctor gaps are handled. Mention `tl completion --install` and `tl agents --compact` as available upstream conveniences.
+A future docs pass can mention `tl completion --install` and `tl agents --compact` as available upstream conveniences.
 
 Estimated effort: small.
 
 ## Suggested adoption order
 
-1. Fix board remove reason handling.
-2. Add `tl_remove` tool.
-3. Add `tl_doctor` diagnostics.
-4. Extend `tl_refine` references.
-5. Update README compatibility statement to 0.9.x.
+1. Keep only `tl_bulk_create` as an agent helper.
+2. Consider a human-facing `/tl-doctor` command.
+3. Add install-note docs for `tl completion --install` and `tl agents --compact`.
 
-This keeps current UI behavior working first, then exposes newer upstream capabilities to agents, then finishes documentation alignment.
+This keeps current UI behavior working while avoiding a second, drifting wrapper surface for the `tl` CLI.
