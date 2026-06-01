@@ -1,6 +1,6 @@
 import type { ExtensionAPI, ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
 import { runTl } from "./cli.js";
-import { taskLabel, tasksFromJson, type TaskSummary } from "./tasks.js";
+import { renderTaskLine, tasksFromJson, type TaskSummary, type TaskVisualColor } from "./tasks.js";
 
 const BOARD_MAX_VISIBLE_TASKS = 14;
 
@@ -17,6 +17,7 @@ function isArrowDown(data: string): boolean { return ARROW_DOWN_RE.test(data); }
 
 type BoardAction = "implement" | "refine" | "review" | "plan";
 type BoardMode = "list" | "details";
+type BoardViewMode = "focused" | "all";
 
 export type BoardSelection = {
 	action: BoardAction;
@@ -40,6 +41,8 @@ type BoardSection = {
 
 type BoardTui = { requestRender(): void };
 
+type PanelColor = TaskVisualColor;
+
 export async function openTaskLedgerBoard(pi: ExtensionAPI, ctx: ExtensionContext): Promise<BoardSelection | undefined> {
 	const sections = await loadBoardSections(pi, ctx);
 	const entries = sections.flatMap((section) => section.tasks.map((task) => taskEntry(section, task))).filter((entry): entry is BoardEntry => entry !== undefined);
@@ -54,7 +57,21 @@ export async function openTaskLedgerBoard(pi: ExtensionAPI, ctx: ExtensionContex
 	};
 
 	return ctx.ui.custom<BoardSelection | undefined>(
-		(tui, theme, _keybindings, done) => new TaskLedgerBoardComponent(tui, theme, sections, loadDetails, done),
+		(tui, theme, _keybindings, done) => new TaskLedgerBoardComponent(tui, theme, sections, loadDetails, done, async (action, id) => {
+			if (action === "cancel") {
+				const confirmed = await ctx.ui.confirm("Cancel task?", `Cancel ${id}? This will mark the task as cancelled.`);
+				if (!confirmed) return false;
+				const reason = await ctx.ui.input("Reason for cancellation", "cancelled from board");
+				const run = await runTl(pi, ctx, ["cancel", id, "--message", reason || "cancelled from board"]);
+				ctx.ui.notify(run.exitCode === 0 ? `Cancelled ${id}.` : run.stderr.trim() || `Cancel failed`, run.exitCode === 0 ? "info" : "error");
+				return run.exitCode === 0;
+			}
+			const confirmed = await ctx.ui.confirm("Remove task?", `Remove ${id}? This cannot be undone.`);
+			if (!confirmed) return false;
+			const run = await runTl(pi, ctx, ["remove", id]);
+			ctx.ui.notify(run.exitCode === 0 ? `Removed ${id}.` : run.stderr.trim() || `Remove failed`, run.exitCode === 0 ? "info" : "error");
+			return run.exitCode === 0;
+		}),
 		{
 			overlay: true,
 			overlayOptions: {
@@ -74,6 +91,8 @@ async function loadBoardSections(pi: ExtensionAPI, ctx: ExtensionContext): Promi
 		{ label: "Blocked", icon: "▲", args: ["list", "--status", "blocked", "--json"] },
 		{ label: "Pending human", icon: "?", args: ["list", "--status", "pending_human", "--json"] },
 		{ label: "Stale claims", icon: "◇", args: ["stale", "--json"] },
+		{ label: "Done", icon: "✓", args: ["list", "--status", "done", "--json"] },
+		{ label: "Cancelled", icon: "✗", args: ["list", "--status", "cancelled", "--json"] },
 	];
 
 	return Promise.all(
@@ -91,10 +110,12 @@ function taskEntry(section: BoardSection, task: TaskSummary): BoardEntry | undef
 }
 
 class TaskLedgerBoardComponent {
-	private readonly entries: BoardEntry[];
+	private readonly focusedEntries: BoardEntry[];
+	private readonly allEntries: BoardEntry[];
 	private selectedTaskIndex = 0;
 	private scrollOffset = 0;
 	private mode: BoardMode = "list";
+	private viewMode: BoardViewMode = "focused";
 	private detailsTaskId: string | undefined;
 	private detailsText: string | undefined;
 	private detailsLoading = false;
@@ -105,23 +126,39 @@ class TaskLedgerBoardComponent {
 		sections: BoardSection[],
 		private readonly loadDetails: (id: string) => Promise<string>,
 		private readonly done: (result: BoardSelection | undefined) => void,
+		private readonly onLifecycle?: (action: "cancel" | "remove", id: string) => Promise<boolean>,
 	) {
-		this.entries = sections.flatMap((section) =>
-			section.tasks.map((task) => taskEntry(section, task)).filter((entry): entry is BoardEntry => entry !== undefined),
+		this.focusedEntries = sections
+			.slice(0, 5)
+			.flatMap((section) =>
+				section.tasks.map((task) => taskEntry(section, task)).filter((e): e is BoardEntry => e !== undefined),
+			);
+		this.allEntries = sections.flatMap((section) =>
+			section.tasks.map((task) => taskEntry(section, task)).filter((e): e is BoardEntry => e !== undefined),
 		);
 	}
 
 	render(width: number): string[] {
 		const selected = this.selectedEntry();
-		const title = `Task Ledger Board${selected ? ` — ${selected.id}` : ""}`;
+		const title = `Task Ledger Board${selected ? ` - ${selected.id}` : ""}`;
+		const toggleHint = this.viewMode === "all" ? "a focused view" : "a show all";
+		const helpText = this.mode === "details"
+			? `b/esc back • c cancel • x remove • i implement • r refine • v review • p plan • q close`
+			: `↑/k ↓/j navigate • enter/d details • ${toggleHint} • i implement • r refine • v review • p plan • esc/q close`;
 		const lines = [
+			this.borderTop(width),
 			this.panelLine(width, title, "accent", true),
-			this.panelLine(width, this.mode === "details" ? "b/esc back • i implement • r refine • v review • p plan • q close" : "↑/k ↓/j navigate • enter/d details • i implement • r refine • v review • p plan • esc/q close", "dim"),
-			this.panelLine(width, "─".repeat(Math.max(1, Math.min(width, 80))), "borderMuted"),
+			this.panelLine(width, helpText, "dim"),
+			this.separatorLine(width),
 		];
 
-		if (this.mode === "details") return [...lines, ...this.renderDetails(width)];
-		return [...lines, ...this.renderList(width)];
+		if (this.mode === "details") {
+			lines.push(...this.renderDetails(width));
+		} else {
+			lines.push(...this.renderList(width));
+		}
+		lines.push(this.borderBottom(width));
+		return lines;
 	}
 
 	handleInput(data: string): void {
@@ -136,6 +173,18 @@ class TaskLedgerBoardComponent {
 		}
 		if (this.mode === "details" && data === "b") {
 			this.backToList();
+			return;
+		}
+		if (this.mode === "details" && data === "c") {
+			void this.runLifecycle("cancel");
+			return;
+		}
+		if (this.mode === "details" && data === "x") {
+			void this.runLifecycle("remove");
+			return;
+		}
+		if (this.mode === "list" && data === "a") {
+			this.toggleViewMode();
 			return;
 		}
 		if (this.mode === "list" && (isArrowUp(data) || data === "k")) {
@@ -212,8 +261,18 @@ class TaskLedgerBoardComponent {
 			const isSelected = entry.id === selected?.id;
 			const pointer = isSelected ? "▶" : " ";
 			const color = isSelected ? "accent" : this.colorForSection(entry.section);
-			const label = `${pointer} ${entry.icon} ${entry.section}: ${taskLabel(entry.task)}`;
-			lines.push(this.panelLine(width, label, color, isSelected));
+			const innerWidth = Math.max(0, width - 4);
+			const row = renderTaskLine(this.theme, {
+				leading: `${pointer} `,
+				sectionIcon: entry.icon,
+				task: entry.task,
+				primaryColor: color,
+				width: innerWidth,
+				showTags: true,
+				tagColor: "muted",
+				selected: isSelected,
+			});
+			lines.push(this.panelStyledLine(width, row.text, row.visibleLength));
 		}
 
 		const total = this.taskEntries().length;
@@ -226,8 +285,23 @@ class TaskLedgerBoardComponent {
 
 	private renderDetails(width: number): string[] {
 		const selected = this.selectedEntry();
-		const header = selected ? `${selected.icon} ${selected.section}: ${taskLabel(selected.task)}` : "Task details";
-		const lines = [this.panelLine(width, header, "accent", true)];
+		const header = "Task details";
+		let headerLine: string;
+		if (selected) {
+			const row = renderTaskLine(this.theme, {
+				sectionIcon: selected.icon,
+				task: selected.task,
+				primaryColor: "accent",
+				width: Math.max(0, width - 4),
+				showTags: true,
+				tagColor: "muted",
+				selected: true,
+			});
+			headerLine = this.panelStyledLine(width, row.text, row.visibleLength);
+		} else {
+			headerLine = this.panelLine(width, header, "accent", true);
+		}
+		const lines: string[] = [headerLine];
 		const detailLines = (this.detailsText ?? "").split(/\r?\n/).slice(0, 18);
 		for (const line of detailLines) lines.push(this.panelLine(width, this.detailsLoading ? line : line, this.detailsLoading ? "warning" : "text"));
 		return lines;
@@ -238,7 +312,22 @@ class TaskLedgerBoardComponent {
 	}
 
 	private taskEntries(): BoardEntry[] {
-		return this.entries;
+		return this.viewMode === "all" ? this.allEntries : this.focusedEntries;
+	}
+
+	private toggleViewMode(): void {
+		this.viewMode = this.viewMode === "focused" ? "all" : "focused";
+		this.selectedTaskIndex = 0;
+		this.scrollOffset = 0;
+		this.tui.requestRender();
+	}
+
+	private async runLifecycle(action: "cancel" | "remove"): Promise<void> {
+		if (!this.onLifecycle) return;
+		const selected = this.selectedEntry();
+		if (!selected) return;
+		const ok = await this.onLifecycle(action, selected.id);
+		if (ok) this.backToList();
 	}
 
 	private clampScroll(): void {
@@ -248,18 +337,42 @@ class TaskLedgerBoardComponent {
 		}
 	}
 
-	private colorForSection(section: string): "muted" | "success" | "error" | "warning" | "dim" {
+	private colorForSection(section: string): PanelColor {
+		if (section === "Ready") return "accent";
 		if (section === "In progress") return "success";
 		if (section === "Blocked") return "error";
 		if (section === "Pending human" || section === "Stale claims") return "warning";
+		if (section === "Done" || section === "Cancelled") return "dim";
 		return "muted";
 	}
 
-	private panelLine(width: number, text: string, color: "accent" | "borderMuted" | "dim" | "error" | "muted" | "success" | "text" | "warning", selected = false): string {
-		const fitted = this.fitPlain(width, text).padEnd(width, " ");
-		const foreground = this.theme.fg(color, selected ? this.theme.bold(fitted) : fitted);
-		return this.theme.bg("customMessageBg", foreground);
+	private panelLine(fullWidth: number, text: string, color: PanelColor, selected = false): string {
+		const innerWidth = Math.max(0, fullWidth - 4); // 2 chars left ("│ ") + 2 chars right (" │")
+		const fitted = this.fitPlain(innerWidth, text);
+		const inner = selected ? this.theme.bold(fitted) : fitted;
+		return this.panelStyledLine(fullWidth, this.theme.fg(color, inner), fitted.length);
 	}
+
+	private panelStyledLine(fullWidth: number, styledInner: string, visibleLength: number): string {
+		const innerWidth = Math.max(0, fullWidth - 4); // 2 chars left ("│ ") + 2 chars right (" │")
+		const padLen = Math.max(0, innerWidth - visibleLength);
+		const left = this.theme.fg("borderMuted", "│");
+		const right = this.theme.fg("borderMuted", "│");
+		return this.theme.bg("customMessageBg", `${left} ${styledInner}${" ".repeat(padLen)} ${right}`);
+	}
+
+	private borderTop(width: number): string {
+		return this.theme.bg("customMessageBg", this.theme.fg("borderMuted", `┌${"─".repeat(Math.max(0, width - 2))}┐`));
+	}
+
+	private borderBottom(width: number): string {
+		return this.theme.bg("customMessageBg", this.theme.fg("borderMuted", `└${"─".repeat(Math.max(0, width - 2))}┘`));
+	}
+
+	private separatorLine(width: number): string {
+		return this.theme.bg("customMessageBg", this.theme.fg("borderMuted", `├${"─".repeat(Math.max(0, width - 2))}┤`));
+	}
+
 
 	private fitPlain(width: number, text: string): string {
 		if (text.length <= width) return text;

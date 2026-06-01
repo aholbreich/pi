@@ -23,6 +23,12 @@ function loadExtension() {
 	return jiti("../extensions/tl/index.ts").default;
 }
 
+function loadTlTasks() {
+	const { createJiti } = loadJiti();
+	const jiti = createJiti(join(process.cwd(), "tests/extension.test.mjs"));
+	return jiti("../extensions/tl/tasks.ts");
+}
+
 function registerExtension(overrides = {}) {
 	const tools = new Map();
 	const commands = new Map();
@@ -44,6 +50,12 @@ const testTheme = {
 	fg: (_color, text) => text,
 	bg: (_color, text) => text,
 	bold: (text) => text,
+};
+
+const markedTheme = {
+	fg: (color, text) => `[${color}]${text}[/${color}]`,
+	bg: (_color, text) => text,
+	bold: (text) => `<b>${text}</b>`,
 };
 
 function makeCommandContext({ hasUI = true, selectChoice, selectChoices, editorText = "- rough todo" } = {}) {
@@ -194,8 +206,28 @@ test("session start renders a live task ledger overlay when a ledger exists", as
 	const component = widget.value({ requestRender: () => {} }, testTheme);
 	const lines = component.render(100);
 	assert.match(lines.join("\n"), /Task Ledger/);
-	assert.match(lines.join("\n"), /Active: task-active/);
-	assert.match(lines.join("\n"), /Ready: task-ready/);
+	assert.match(lines.join("\n"), /task-active/);
+	assert.match(lines.join("\n"), /task-ready/);
+	assert.doesNotMatch(lines.join("\n"), /\/open/);
+});
+
+test("shared task row renderer omits status words and colors tags separately", () => {
+	const { renderTaskLine } = loadTlTasks();
+	const row = renderTaskLine(markedTheme, {
+		leading: "▶ ",
+		sectionIcon: "○",
+		sectionLabel: undefined,
+		task: { id: "task-board", title: "Example task", status: "open", priority: "medium", tags: ["ux"] },
+		primaryColor: "accent",
+		width: 80,
+		showTags: true,
+		tagColor: "muted",
+	});
+
+	assert.doesNotMatch(row.text, /Ready:|\/open/);
+	assert.match(row.text, /\[accent\]▶ ○ task-board /);
+	assert.match(row.text, /\[warning\]▲\[\/warning\]/);
+	assert.match(row.text, /\[muted\] #ux\[\/muted\]/);
 });
 
 test("tl-capture sends rough todos to the agent without creating tasks", async () => {
@@ -249,9 +281,10 @@ test("tl-board opens keyboard navigable overlay and sends selected action", asyn
 
 	await commands.get("tl-board").handler("", ctx);
 
-	assert.equal(calls.length, 5);
+	assert.equal(calls.length, 7);
 	assert.match(rendered.join("\n"), /Task Ledger Board/);
-	assert.match(rendered.join("\n"), /task-board/);
+	assert.match(rendered.join("\n"), /○ task-board ▲ Example task #ux/);
+	assert.doesNotMatch(rendered.join("\n"), /\/open/);
 	assert.equal(sentMessages.length, 1);
 	assert.match(sentMessages[0].message, /Implement task task-board/);
 	assert.deepEqual(notifications, [{ message: "Sent implement request for task-board to the agent.", level: "info" }]);
@@ -287,7 +320,7 @@ test("Task Ledger board shortcut opens modal", async () => {
 	await shortcuts.get("alt+l").handler(ctx);
 
 	assert.equal(opened, true);
-	assert.equal(calls.length, 5);
+	assert.equal(calls.length, 7);
 });
 
 test("tl-board shows task details inside the modal", async () => {
@@ -320,7 +353,7 @@ test("tl-board shows task details inside the modal", async () => {
 
 	await commands.get("tl-board").handler("", ctx);
 
-	assert.equal(calls.length, 6);
+	assert.equal(calls.length, 8);
 	assert.deepEqual(calls.at(-1).args, ["--color", "never", "show", "task-detail"]);
 	assert.match(rendered.join("\n"), /task-detail full details/);
 	assert.match(rendered.join("\n"), /\[bg\]/);

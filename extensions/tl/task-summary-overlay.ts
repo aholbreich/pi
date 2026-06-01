@@ -1,7 +1,7 @@
 import type { ExtensionAPI, ExtensionContext, ExtensionUIContext, Theme } from "@earendil-works/pi-coding-agent";
 import { runTl } from "./cli.js";
 import { hasLedger } from "./ledger.js";
-import { tasksFromJson, type TaskSummary } from "./tasks.js";
+import { renderTaskLine, tasksFromJson, type TaskSummary } from "./tasks.js";
 
 const TL_OVERLAY_WIDGET_KEY = "pi-tl-overlay";
 const MAX_OVERLAY_LINES = 12;
@@ -262,15 +262,20 @@ export class TaskLedgerOverlay {
 	}
 
 	/**
-	 * Format a single task row: "├─ <icon> <section>: <id> [priority] <title>".
-	 * Truncates the combined text to fit within the available width.
+	 * Format a single task row: "├─ <icon> <id> <priIcon> <title>".
+	 * The section icon + id + title use the section color; only the priority
+	 * icon gets its own distinct color (error/warning/dim). Truncates the
+	 * title to fit within the available width.
 	 */
 	private renderTaskLine(theme: Theme, width: number, section: OverlaySection, task: TaskSummary): string {
-		const id = typeof task.id === "string" ? task.id : "unknown";
-		const title = typeof task.title === "string" ? task.title : "(untitled)";
-		const priority = typeof task.priority === "string" ? ` [${task.priority}]` : "";
-		const text = `${section.icon} ${section.label}: ${id}${priority} ${title}`;
-		return fitStyled(theme, width, section.color, "├─", text);
+		return renderTaskLine(theme, {
+			prefix: "├─ ",
+			prefixColor: "dim",
+			sectionIcon: section.icon,
+			task,
+			primaryColor: section.color,
+			width,
+		}).text;
 	}
 
 	private sections(): OverlaySection[] {
@@ -278,7 +283,7 @@ export class TaskLedgerOverlay {
 			{ label: "Active", icon: "◐", color: "success", tasks: this.snapshot.inProgress },
 			{ label: "Blocked", icon: "▲", color: "error", tasks: this.snapshot.blocked },
 			{ label: "Pending", icon: "?", color: "warning", tasks: this.snapshot.pendingHuman },
-			{ label: "Ready", icon: "○", color: "muted", tasks: this.snapshot.ready },
+			{ label: "Ready", icon: "○", color: "accent", tasks: this.snapshot.ready },
 			{ label: "Stale", icon: "◇", color: "warning", tasks: this.snapshot.stale },
 		];
 	}
@@ -293,6 +298,7 @@ function fitStyled(theme: Theme, width: number, color: OverlayColor, prefix: str
 	const budget = Math.max(1, width - visiblePrefix.length);
 	return `${theme.fg("dim", prefix)} ${theme.fg(color, truncateText(text, budget))}`;
 }
+
 
 function truncateText(text: string, width: number): string {
 	if (width <= 0) return "";

@@ -60,7 +60,7 @@ A live Task Ledger overlay is shown above the editor when the current repository
 Human-facing commands focus on the overlay workflow. Agent tools keep color disabled for clean JSON/model output.
 
 - `/tl-capture` - open an editor for rough todos, then ask the agent to refine and create clean tasks
-- `/tl-board` or `Alt+L` - open a keyboard-navigable modal board for ready, in-progress, blocked, pending, and stale tasks; use arrows/j/k to move, enter/d for in-modal details, b/esc to return, and i/r/v/p for implement/refine/review/plan
+- `/tl-board` or `Alt+L` - open a keyboard-navigable modal board for ready, in-progress, blocked, pending, and stale tasks; use arrows/j/k to move, enter/d for in-modal details, b/esc to return, i/r/v/p for implement/refine/review/plan, and `a` to toggle between focused (active) and all (including done/cancelled) views
 - `/tl-init` - initialize task ledger after confirmation
 
 ## Development

@@ -72,6 +72,19 @@ function taskJson(id: string) {
 function arrowUp(): string { return "\x1b[A"; }
 function arrowDown(): string { return "\x1b[B"; }
 
+function sectionIcon(section: string): string {
+  const icons: Record<string, string> = {
+    "Ready": "○",
+    "In progress": "◐",
+    "Blocked": "▲",
+    "Pending human": "\\?",
+    "Stale claims": "◇",
+    "Done": "✓",
+    "Cancelled": "✗",
+  };
+  return icons[section] ?? section;
+}
+
 // -----------------------------------------------------------------------
 // Register extension + open board
 // -----------------------------------------------------------------------
@@ -94,6 +107,7 @@ function registerInto(
   const pi = {
     exec: async (cmd: string, args: string[]) => {
       world.calls.push({ cmd, args });
+      if (!exec && (args.includes("done") || args.includes("cancelled"))) return { code: 0, stdout: "[]", stderr: "" };
       return exec ? exec(cmd, args) : { code: 0, stdout: "[]", stderr: "" };
     },
     sendUserMessage: (message: string, options?: Record<string, unknown>) => {
@@ -136,6 +150,7 @@ function registerInto(
       },
       select: async () => "first-option",
       editor: async () => "captured text",
+      input: async (_title: string, _placeholder?: string) => "cancelled from board",
       confirm: async () => true,
       notify: () => {},
       setStatus: () => {},
@@ -192,6 +207,8 @@ Given("a task ledger repository has the following tasks:", function (this: Board
     if (args.includes("blocked")) return { code: 0, stdout: JSON.stringify(blocked), stderr: "" };
     if (args.includes("pending_human")) return { code: 0, stdout: JSON.stringify(pending), stderr: "" };
     if (args.includes("stale")) return { code: 0, stdout: JSON.stringify(stale), stderr: "" };
+    if (args.includes("done")) return { code: 0, stdout: JSON.stringify([]), stderr: "" };
+    if (args.includes("cancelled")) return { code: 0, stdout: JSON.stringify([]), stderr: "" };
     if (args.includes("show")) return { code: 0, stdout: `${args[args.length - 1]} full details`, stderr: "" };
     throw new Error(`unexpected exec: ${args.join(" ")}`);
   });
@@ -201,6 +218,12 @@ function givenBoardWithTasks(this: BoardWorld, taskIds: string[], exec?: (cmd: s
   registerInto(this, exec ?? (async (_cmd: string, args: string[]) => {
     if (args.includes("ready")) {
       return { code: 0, stdout: JSON.stringify(taskIds.map(id => ({ id, title: `Task ${id}`, status: "open", priority: "medium", tags: [] }))), stderr: "" };
+    }
+    if (args.includes("done")) {
+      return { code: 0, stdout: JSON.stringify([{ id: "task-done", title: "A completed task", status: "done", priority: "low", tags: [] }]), stderr: "" };
+    }
+    if (args.includes("cancelled")) {
+      return { code: 0, stdout: JSON.stringify([{ id: "task-cancelled", title: "A cancelled task", status: "cancelled", priority: "low", tags: [] }]), stderr: "" };
     }
     return { code: 0, stdout: "[]", stderr: "" };
   }));
@@ -258,6 +281,11 @@ When("the user presses the {string} key", function (this: BoardWorld, key: strin
   this.component.handleInput(key);
 });
 
+When("the user presses the {string} key again", function (this: BoardWorld, key: string) {
+  assert.ok(this.component);
+  this.component.handleInput(key);
+});
+
 When("the user selects that task", function (this: BoardWorld) {
   assert.ok(this.component);
   // Navigate to first task
@@ -295,9 +323,10 @@ When("the user presses the {string} shortcut", async function (this: BoardWorld,
 
 Then("the board displays the task {string} under section {string}", function (this: BoardWorld, taskId: string, section: string) {
   assert.ok(this.component);
-  const lines = this.component.render(100).join("\n");
-  assert.match(lines, new RegExp(taskId));
-  assert.match(lines, new RegExp(section));
+  const line = this.component.render(100).find((l: string) => l.includes(taskId) && !l.includes("Task Ledger Board"));
+  assert.ok(line, `expected row for ${taskId}`);
+  assert.match(line, new RegExp(sectionIcon(section)));
+  assert.doesNotMatch(line, new RegExp(`${section}:`));
 });
 
 Then("the third task in the list is selected", function (this: BoardWorld) {
@@ -318,7 +347,7 @@ Then("the next task in the list is selected", function (this: BoardWorld) {
 
 Then("the board title line includes the text {string}", function (this: BoardWorld, text: string) {
   assert.ok(this.component);
-  assert.match(this.component.render(100)[0], new RegExp(text));
+  assert.match(this.component.render(100)[1], new RegExp(text));
 });
 
 Then("the detail modal shows full task information for {string}", function (this: BoardWorld, taskId: string) {
@@ -330,7 +359,7 @@ Then("the detail modal shows full task information for {string}", function (this
 
 Then("the help line indicates that {string} or {string} returns to the list view", function (this: BoardWorld, key1: string, key2: string) {
   assert.ok(this.component);
-  const help = this.component.render(100)[1];
+  const help = this.component.render(100)[2];
   assert.match(help, new RegExp(key1));
   assert.match(help, new RegExp(key2));
 });
@@ -359,4 +388,73 @@ Then("the task ledger board overlay is visible", function (this: BoardWorld) {
   assert.ok(this.component);
   const lines = this.component.render(100).join("\n");
   assert.match(lines, /Task Ledger Board/);
+});
+
+Then("the board has a top border line using box-drawing characters", function (this: BoardWorld) {
+  assert.ok(this.component);
+  const topLine = this.component.render(100)[0];
+  assert.match(topLine, /┌/);
+  assert.match(topLine, /┐/);
+  assert.match(topLine, /─/);
+});
+
+Then("the board has a bottom border line using box-drawing characters", function (this: BoardWorld) {
+  assert.ok(this.component);
+  const lines = this.component.render(100);
+  const bottomLine = lines[lines.length - 1];
+  assert.match(bottomLine, /└/);
+  assert.match(bottomLine, /┘/);
+  assert.match(bottomLine, /─/);
+});
+
+Then("the task rows are framed with vertical border characters and inner padding", function (this: BoardWorld) {
+  assert.ok(this.component);
+  const lines = this.component.render(100);
+  const taskLines = lines.filter((l: string) => /task-[a-z0-9-]+/.test(l));
+  assert.ok(taskLines.length > 0, "expected at least one task row");
+  for (const line of taskLines) {
+    assert.match(line, /^│ /, "task row should start with vertical border and padding");
+    assert.match(line, / │$/, "task row should end with padding and vertical border");
+  }
+});
+
+Given("the user presses the {string} key to enter all-mode", function (this: BoardWorld, key: string) {
+  assert.ok(this.component);
+  this.component.handleInput(key);
+});
+
+Then("the help line shows {string} to indicate all-mode is active", function (this: BoardWorld, text: string) {
+  assert.ok(this.component);
+  const help = this.component.render(100)[2];
+  assert.match(help, new RegExp(text));
+});
+
+Then("the help line shows {string} to indicate focused mode is active", function (this: BoardWorld, text: string) {
+  assert.ok(this.component);
+  const help = this.component.render(100)[2];
+  assert.match(help, new RegExp(text));
+});
+
+Then("the board shows a {string} section", function (this: BoardWorld, section: string) {
+  assert.ok(this.component);
+  const lines = this.component.render(100).join("\n");
+  assert.match(lines, new RegExp(sectionIcon(section)));
+});
+
+Then("the board does not show a {string} section", function (this: BoardWorld, section: string) {
+  assert.ok(this.component);
+  const lines = this.component.render(100).join("\n");
+  assert.doesNotMatch(lines, new RegExp(sectionIcon(section)));
+});
+
+When("the user requests to cancel that task", async function (this: BoardWorld) {
+  assert.ok(this.component);
+  this.component.handleInput("c");
+  // Wait for the async lifecycle callback (confirm → input → runTl) to complete
+  await new Promise((resolve) => setTimeout(resolve, 50));
+});
+
+Then("the task {string} is cancelled", function (this: BoardWorld, taskId: string) {
+  assert.ok(this.calls.some(c => c.args.includes("cancel") && c.args.includes(taskId)), `expected tl cancel call for ${taskId}`);
+  assert.ok(this.component, "board should still be open");
 });
