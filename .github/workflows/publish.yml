@@ -1,27 +1,30 @@
-name: Publish to npm
+name: release
 
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*.*.*'
+
+permissions:
+  contents: read
+  id-token: write
 
 jobs:
-  publish:
+  npm-publish:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
+    if: github.repository == 'aholbreich/pi'
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          registry-url: 'https://registry.npmjs.org'
-
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - name: Verify tag matches package version
+        run: |
+          node -e "const v=require('./package.json').version; const tag=process.env.GITHUB_REF_NAME; if (tag !== 'v' + v) { console.error('Tag ' + tag + ' does not match package version ' + v + '. Expected v' + v + '.'); process.exit(1); }"
       - run: npm ci
       - run: npm run check
       - run: npm test
-
-      - name: Publish
-        run: npm publish --provenance --access public
+      - run: npm pack --dry-run
+      - name: Publish to npm
+        run: npm publish --access public --provenance
