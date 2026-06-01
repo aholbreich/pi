@@ -14,7 +14,8 @@ Feature: Task Ledger board navigation
     And the board displays the task "task-active" under section "In progress"
     And the board displays the task "task-stale" under section "Stale claims"
 
-  Given the task ledger board is open with multiple tasks
+  Scenario: Navigate the task list with arrow keys
+    Given the task ledger board is open with multiple tasks
     When the user presses the down arrow key twice
     Then the third task in the list is selected
 
@@ -55,11 +56,12 @@ Feature: Task Ledger board navigation
     When the user presses the "Alt+L" shortcut
     Then the task ledger board overlay is visible
 
-  Scenario: Board overlay has a framed panel with borders and padding
+  Scenario: Board overlay has a rounded framed panel
     Given the task ledger board is open with a task "task-borders"
-    Then the board has a top border line using box-drawing characters
-    And the board has a bottom border line using box-drawing characters
+    Then the board has a rounded top border with a centered title
+    And the board has a rounded bottom border line
     And the task rows are framed with vertical border characters and inner padding
+    And the selected task row uses a compact pointer
 
   Scenario: Toggle between focused and all-mode view
     Given the task ledger board is open with multiple tasks
@@ -81,6 +83,21 @@ Feature: Task Ledger board navigation
     When the user requests to cancel that task
     Then the task "task-cancel" is cancelled
     And the board returns to the list view
+
+  Scenario: Press Esc in details view returns to list
+    Given the task ledger board is showing task details
+    When the user presses the Esc key
+    Then the board returns to the list view
+
+  Scenario: Press Esc in list view closes the board
+    Given the task ledger board is open
+    When the user presses the Esc key
+    Then the board overlay closes
+
+  Scenario: Press q in details view returns to list not close the board
+    Given the task ledger board is showing task details
+    When the user presses the "q" key
+    Then the board returns to the list view
 
   Scenario: Remove a task from the detail view with a reason
     Given the task ledger board is open with a task "task-remove"

@@ -279,7 +279,8 @@ test("tl-board opens keyboard navigable overlay and sends selected action", asyn
 
 	assert.equal(calls.length, 7);
 	assert.match(rendered.join("\n"), /Task Ledger Board/);
-	assert.match(rendered.join("\n"), /○ task-board ▲ Example task #ux/);
+	assert.match(rendered.join("\n"), /○ task-board ▲ Example task/);
+	assert.doesNotMatch(rendered.join("\n"), /#ux/);
 	assert.doesNotMatch(rendered.join("\n"), /\/open/);
 	assert.equal(sentMessages.length, 1);
 	assert.match(sentMessages[0].message, /Implement task task-board/);

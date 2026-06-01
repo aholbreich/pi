@@ -59,6 +59,8 @@ function loadExtension() {
   return jiti("../extensions/tl/index.ts").default;
 }
 
+const BOARD_RENDER_WIDTH = 80;
+
 const testTheme = {
   fg: (_c: string, t: string) => t,
   bg: (_c: string, t: string) => t,
@@ -281,6 +283,11 @@ When("the user presses the {string} key", function (this: BoardWorld, key: strin
   this.component.handleInput(key);
 });
 
+When("the user presses the Esc key", function (this: BoardWorld) {
+  assert.ok(this.component);
+  this.component.handleInput("\u001b");
+});
+
 When("the user presses the {string} key again", function (this: BoardWorld, key: string) {
   assert.ok(this.component);
   this.component.handleInput(key);
@@ -331,23 +338,25 @@ Then("the board displays the task {string} under section {string}", function (th
 
 Then("the third task in the list is selected", function (this: BoardWorld) {
   assert.ok(this.component);
-  const lines = this.component.render(100).join("\n");
-  const selected = lines.split("\n").filter((l) => l.includes("▶"));
+  const lines = this.component.render(BOARD_RENDER_WIDTH).join("\n");
+  const selected = lines.split("\n").filter((l) => l.includes("▸"));
   assert.equal(selected.length, 1);
   assert.match(selected[0], /task-c/);
 });
 
 Then("the next task in the list is selected", function (this: BoardWorld) {
   assert.ok(this.component);
-  const lines = this.component.render(100).join("\n");
-  const selected = lines.split("\n").filter((l) => l.includes("▶"));
+  const lines = this.component.render(BOARD_RENDER_WIDTH).join("\n");
+  const selected = lines.split("\n").filter((l) => l.includes("▸"));
   assert.equal(selected.length, 1);
   assert.match(selected[0], /task-b/);
 });
 
 Then("the board title line includes the text {string}", function (this: BoardWorld, text: string) {
   assert.ok(this.component);
-  assert.match(this.component.render(100)[1], new RegExp(text));
+  const titleLine = this.component.render(BOARD_RENDER_WIDTH).find((line) => line.includes("Task Ledger Board"));
+  assert.ok(titleLine, "expected title line");
+  assert.match(titleLine, new RegExp(text));
 });
 
 Then("the detail modal shows full task information for {string}", function (this: BoardWorld, taskId: string) {
@@ -359,9 +368,8 @@ Then("the detail modal shows full task information for {string}", function (this
 
 Then("the help line indicates that {string} or {string} returns to the list view", function (this: BoardWorld, key1: string, key2: string) {
   assert.ok(this.component);
-  const help = this.component.render(100)[2];
-  assert.match(help, new RegExp(key1));
-  assert.match(help, new RegExp(key2));
+  const help = this.component.render(BOARD_RENDER_WIDTH).find((line) => line.includes(key1) && line.includes(key2));
+  assert.ok(help, `expected help line to include ${key1} and ${key2}`);
 });
 
 Then("the board returns to the list view", function (this: BoardWorld) {
@@ -390,32 +398,40 @@ Then("the task ledger board overlay is visible", function (this: BoardWorld) {
   assert.match(lines, /Task Ledger Board/);
 });
 
-Then("the board has a top border line using box-drawing characters", function (this: BoardWorld) {
+Then("the board has a rounded top border with a centered title", function (this: BoardWorld) {
   assert.ok(this.component);
-  const topLine = this.component.render(100)[0];
-  assert.match(topLine, /┌/);
-  assert.match(topLine, /┐/);
+  const topLine = this.component.render(BOARD_RENDER_WIDTH)[0];
+  assert.match(topLine, /╭/);
+  assert.match(topLine, /╮/);
   assert.match(topLine, /─/);
+  assert.match(topLine, /Task Ledger Board/);
 });
 
-Then("the board has a bottom border line using box-drawing characters", function (this: BoardWorld) {
+Then("the board has a rounded bottom border line", function (this: BoardWorld) {
   assert.ok(this.component);
-  const lines = this.component.render(100);
+  const lines = this.component.render(BOARD_RENDER_WIDTH);
   const bottomLine = lines[lines.length - 1];
-  assert.match(bottomLine, /└/);
-  assert.match(bottomLine, /┘/);
+  assert.match(bottomLine, /╰/);
+  assert.match(bottomLine, /╯/);
   assert.match(bottomLine, /─/);
 });
 
 Then("the task rows are framed with vertical border characters and inner padding", function (this: BoardWorld) {
   assert.ok(this.component);
-  const lines = this.component.render(100);
-  const taskLines = lines.filter((l: string) => /task-[a-z0-9-]+/.test(l));
+  const lines = this.component.render(BOARD_RENDER_WIDTH);
+  const taskLines = lines.filter((l: string) => /task-[a-z0-9-]+/.test(l) && !l.includes("Task Ledger Board"));
   assert.ok(taskLines.length > 0, "expected at least one task row");
   for (const line of taskLines) {
     assert.match(line, /^│ /, "task row should start with vertical border and padding");
     assert.match(line, / │$/, "task row should end with padding and vertical border");
   }
+});
+
+Then("the selected task row uses a compact pointer", function (this: BoardWorld) {
+  assert.ok(this.component);
+  const lines = this.component.render(BOARD_RENDER_WIDTH);
+  const selected = lines.find((line) => line.includes("▸") && line.includes("task-borders"));
+  assert.ok(selected, "expected selected row to use compact pointer");
 });
 
 Given("the user presses the {string} key to enter all-mode", function (this: BoardWorld, key: string) {
@@ -425,14 +441,14 @@ Given("the user presses the {string} key to enter all-mode", function (this: Boa
 
 Then("the help line shows {string} to indicate all-mode is active", function (this: BoardWorld, text: string) {
   assert.ok(this.component);
-  const help = this.component.render(100)[2];
-  assert.match(help, new RegExp(text));
+  const help = this.component.render(BOARD_RENDER_WIDTH).find((line) => line.includes(text));
+  assert.ok(help, `expected help line to include ${text}`);
 });
 
 Then("the help line shows {string} to indicate focused mode is active", function (this: BoardWorld, text: string) {
   assert.ok(this.component);
-  const help = this.component.render(100)[2];
-  assert.match(help, new RegExp(text));
+  const help = this.component.render(BOARD_RENDER_WIDTH).find((line) => line.includes(text));
+  assert.ok(help, `expected help line to include ${text}`);
 });
 
 Then("the board shows a {string} section", function (this: BoardWorld, section: string) {

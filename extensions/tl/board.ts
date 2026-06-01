@@ -2,7 +2,8 @@ import type { ExtensionAPI, ExtensionContext, Theme } from "@earendil-works/pi-c
 import { runTl } from "./cli.js";
 import { renderTaskLine, tasksFromJson, type TaskSummary, type TaskVisualColor } from "./tasks.js";
 
-const BOARD_MAX_VISIBLE_TASKS = 14;
+const BOARD_MAX_VISIBLE_TASKS = 8;
+const BOARD_OVERLAY_WIDTH = 80;
 
 // Arrow key escape sequences across terminal protocols:
 // - Legacy CSI:   \x1b[A  / \x1b[B
@@ -76,10 +77,9 @@ export async function openTaskLedgerBoard(pi: ExtensionAPI, ctx: ExtensionContex
 		{
 			overlay: true,
 			overlayOptions: {
-				width: "85%",
+				width: BOARD_OVERLAY_WIDTH,
 				maxHeight: "80%",
 				anchor: "center",
-				margin: 2,
 			},
 		},
 	);
@@ -113,6 +113,7 @@ function taskEntry(section: BoardSection, task: TaskSummary): BoardEntry | undef
 class TaskLedgerBoardComponent {
 	private readonly focusedEntries: BoardEntry[];
 	private readonly allEntries: BoardEntry[];
+	private readonly sections: BoardSection[];
 	private selectedTaskIndex = 0;
 	private scrollOffset = 0;
 	private mode: BoardMode = "list";
@@ -129,6 +130,7 @@ class TaskLedgerBoardComponent {
 		private readonly done: (result: BoardSelection | undefined) => void,
 		private readonly onLifecycle?: (action: "cancel" | "remove", id: string) => Promise<boolean>,
 	) {
+		this.sections = sections;
 		this.focusedEntries = sections
 			.slice(0, 5)
 			.flatMap((section) =>
@@ -144,12 +146,13 @@ class TaskLedgerBoardComponent {
 		const title = `Task Ledger Board${selected ? ` - ${selected.id}` : ""}`;
 		const toggleHint = this.viewMode === "all" ? "a focused view" : "a show all";
 		const helpText = this.mode === "details"
-			? `b/esc back • c cancel • x remove • i implement • r refine • v review • p plan • q close`
-			: `↑/k ↓/j navigate • enter/d details • ${toggleHint} • i implement • r refine • v review • p plan • esc/q close`;
+			? `esc/b back • c cancel • x remove • i implement • r refine • v review • p plan`
+			: `esc close • ↑/k ↓/j navigate • enter/d details • ${toggleHint} • i implement • r refine • v review • p plan`;
 		const lines = [
-			this.borderTop(width),
-			this.panelLine(width, title, "accent", true),
-			this.panelLine(width, helpText, "dim"),
+			this.borderTop(width, title),
+			this.emptyLine(width),
+			this.summaryLine(width),
+			this.emptyLine(width),
 			this.separatorLine(width),
 		];
 
@@ -158,16 +161,20 @@ class TaskLedgerBoardComponent {
 		} else {
 			lines.push(...this.renderList(width));
 		}
+		lines.push(this.separatorLine(width));
+		lines.push(this.emptyLine(width));
+		lines.push(...this.footerLines(width, helpText));
 		lines.push(this.borderBottom(width));
 		return lines;
 	}
 
 	handleInput(data: string): void {
-		if (data === "q") {
-			this.done(undefined);
+		if (data === "\u001b") {
+			if (this.mode === "details") this.backToList();
+			else this.done(undefined);
 			return;
 		}
-		if (data === "\u001b") {
+		if (data === "q") {
 			if (this.mode === "details") this.backToList();
 			else this.done(undefined);
 			return;
@@ -260,17 +267,16 @@ class TaskLedgerBoardComponent {
 		const lines: string[] = [];
 		for (const entry of this.visibleTaskEntries()) {
 			const isSelected = entry.id === selected?.id;
-			const pointer = isSelected ? "▶" : " ";
+			const pointer = isSelected ? "▸" : "·";
 			const color = isSelected ? "accent" : this.colorForSection(entry.section);
 			const innerWidth = Math.max(0, width - 4);
 			const row = renderTaskLine(this.theme, {
-				leading: `${pointer} `,
+				prefix: `${pointer} `,
+				prefixColor: isSelected ? "accent" : "dim",
 				sectionIcon: entry.icon,
 				task: entry.task,
 				primaryColor: color,
 				width: innerWidth,
-				showTags: true,
-				tagColor: "muted",
 				selected: isSelected,
 			});
 			lines.push(this.panelStyledLine(width, row.text, row.visibleLength));
@@ -294,8 +300,6 @@ class TaskLedgerBoardComponent {
 				task: selected.task,
 				primaryColor: "accent",
 				width: Math.max(0, width - 4),
-				showTags: true,
-				tagColor: "muted",
 				selected: true,
 			});
 			headerLine = this.panelStyledLine(width, row.text, row.visibleLength);
@@ -347,6 +351,32 @@ class TaskLedgerBoardComponent {
 		return "muted";
 	}
 
+	private summaryLine(fullWidth: number): string {
+		const sections = (this.viewMode === "all" ? this.sections : this.sections.slice(0, 5))
+			.map((section) => ({ ...section, count: section.tasks.filter((task) => typeof task.id === "string").length }))
+			.filter((section) => section.count > 0);
+		if (sections.length === 0) return this.panelLine(fullWidth, "No visible tasks", "dim");
+
+		let visibleLength = 0;
+		const rawParts: string[] = [];
+		const styledParts: string[] = [];
+		for (const section of sections) {
+			const raw = `${section.icon} ${section.label} ${section.count}`;
+			if (styledParts.length > 0) {
+				rawParts.push(" · ");
+				styledParts.push(this.theme.fg("dim", " · "));
+				visibleLength += 3;
+			}
+			rawParts.push(raw);
+			styledParts.push(this.theme.fg(this.colorForSection(section.label), raw));
+			visibleLength += raw.length;
+		}
+
+		const innerWidth = Math.max(0, fullWidth - 4);
+		if (visibleLength > innerWidth) return this.panelLine(fullWidth, rawParts.join(""), "dim");
+		return this.panelStyledLine(fullWidth, styledParts.join(""), visibleLength);
+	}
+
 	private panelLine(fullWidth: number, text: string, color: PanelColor, selected = false): string {
 		const innerWidth = Math.max(0, fullWidth - 4); // 2 chars left ("│ ") + 2 chars right (" │")
 		const fitted = this.fitPlain(innerWidth, text);
@@ -362,20 +392,63 @@ class TaskLedgerBoardComponent {
 		return this.theme.bg("customMessageBg", `${left} ${styledInner}${" ".repeat(padLen)} ${right}`);
 	}
 
-	private borderTop(width: number): string {
-		return this.theme.bg("customMessageBg", this.theme.fg("borderMuted", `┌${"─".repeat(Math.max(0, width - 2))}┐`));
+	private centerLine(fullWidth: number, styledInner: string, visibleLength: number): string {
+		const innerWidth = Math.max(0, fullWidth - 4); // center within the same padded content area as rows
+		const padding = Math.max(0, innerWidth - visibleLength);
+		const leftPad = Math.floor(padding / 2);
+		const rightPad = padding - leftPad;
+		const left = this.theme.fg("borderMuted", "│");
+		const right = this.theme.fg("borderMuted", "│");
+		return this.theme.bg("customMessageBg", `${left} ${" ".repeat(leftPad)}${styledInner}${" ".repeat(rightPad)} ${right}`);
+	}
+
+	private footerLines(fullWidth: number, helpText: string): string[] {
+		const innerWidth = Math.max(1, fullWidth - 4);
+		const parts = helpText.split(" • ");
+		const rows: string[] = [];
+		let current = "";
+		for (const part of parts) {
+			const next = current ? `${current} • ${part}` : part;
+			if (next.length <= innerWidth || current.length === 0) {
+				current = next;
+				continue;
+			}
+			rows.push(current);
+			current = part;
+		}
+		if (current) rows.push(current);
+		return rows.map((row) => {
+			const fitted = this.fitPlain(innerWidth, row);
+			return this.centerLine(fullWidth, this.theme.fg("dim", fitted), fitted.length);
+		});
+	}
+
+	private emptyLine(width: number): string {
+		return this.theme.bg("customMessageBg", `${this.theme.fg("borderMuted", "│")}${" ".repeat(Math.max(0, width - 2))}${this.theme.fg("borderMuted", "│")}`);
+	}
+
+	private borderTop(width: number, title: string): string {
+		const innerWidth = Math.max(0, width - 2);
+		const titleText = this.fitPlain(innerWidth, ` ${title} `);
+		const borderLen = Math.max(0, innerWidth - titleText.length);
+		const leftLen = Math.floor(borderLen / 2);
+		const rightLen = borderLen - leftLen;
+		return this.theme.bg(
+			"customMessageBg",
+			`${this.theme.fg("borderMuted", `╭${"─".repeat(leftLen)}`)}${this.theme.fg("text", this.theme.bold(titleText))}${this.theme.fg("borderMuted", `${"─".repeat(rightLen)}╮`)}`,
+		);
 	}
 
 	private borderBottom(width: number): string {
-		return this.theme.bg("customMessageBg", this.theme.fg("borderMuted", `└${"─".repeat(Math.max(0, width - 2))}┘`));
+		return this.theme.bg("customMessageBg", this.theme.fg("borderMuted", `╰${"─".repeat(Math.max(0, width - 2))}╯`));
 	}
 
 	private separatorLine(width: number): string {
 		return this.theme.bg("customMessageBg", this.theme.fg("borderMuted", `├${"─".repeat(Math.max(0, width - 2))}┤`));
 	}
 
-
 	private fitPlain(width: number, text: string): string {
+		if (width <= 0) return "";
 		if (text.length <= width) return text;
 		if (width <= 1) return "…";
 		return `${text.slice(0, width - 1)}…`;

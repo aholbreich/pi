@@ -4,6 +4,8 @@ Pi extension package for [`tl`](https://github.com/aholbreich/tl), the Git-nativ
 
 This package shells out to the local `tl` binary. It does not bundle or install `tl`.
 
+![Task Ledger board overlay](docs/images/tl-board.png)
+
 ## Requirements
 
 - `pi`
