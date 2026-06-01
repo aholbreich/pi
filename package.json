@@ -21,14 +21,18 @@
     "typebox": "*"
   },
   "devDependencies": {
+    "@cucumber/cucumber": "^12.9.0",
     "@earendil-works/pi-ai": "*",
     "@earendil-works/pi-coding-agent": "*",
+    "tsx": "^4.22.4",
     "typebox": "*",
     "typescript": "^5.0.0"
   },
   "scripts": {
     "check": "tsc --noEmit",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "test:bdd": "cucumber-js",
+    "test:all": "node --test tests/*.test.mjs && cucumber-js"
   },
   "files": [
     "extensions",

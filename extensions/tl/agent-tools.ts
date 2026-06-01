@@ -7,10 +7,17 @@ import { IdParam, Priority } from "./schemas.js";
 /**
  * Register LLM-callable task ledger tools.
  *
- * These are not slash commands. The user usually does not type them directly;
- * Pi exposes them to the model so the agent can call `tl_ready`, `tl_claim`, etc.
+ * These are agent tools — Pi exposes them to the model so the agent can call
+ * tl_ready, tl_claim, etc. They are distinct from user-facing slash commands
+ * registered in commands.ts.
+ *
+ * Most tools delegate to runTlTool(), which shells out to the tl CLI, parses
+ * JSON output, and wraps the result into a model-consumable { content: [...] }
+ * format. The exception is tl_bulk_create (see its registration comment).
  */
 export function registerTlTools(pi: ExtensionAPI): void {
+	// ── Query tools — read-only task lookups ──
+
 	pi.registerTool({
 		name: "tl_ready",
 		label: "tl:ready",
@@ -81,6 +88,8 @@ export function registerTlTools(pi: ExtensionAPI): void {
 		},
 	});
 
+	// ── CRUD tools — create / update tasks ──
+
 	pi.registerTool({
 		name: "tl_create",
 		label: "tl:create",
@@ -105,6 +114,9 @@ export function registerTlTools(pi: ExtensionAPI): void {
 		},
 	});
 
+	// tl_bulk_create composes multiple tl create calls and builds a summary report.
+	// It uses runTl() directly instead of runTlTool() because it needs to aggregate
+	// individual call results and set isError when any task fails.
 	pi.registerTool({
 		name: "tl_bulk_create",
 		label: "tl:bulk:create",
@@ -202,6 +214,8 @@ export function registerTlTools(pi: ExtensionAPI): void {
 			return runTlTool(pi, { cwd: ctx.cwd, signal }, args, { parseJson: true });
 		},
 	});
+
+	// ── Lifecycle tools — claim, workflow state transitions ──
 
 	pi.registerTool({
 		name: "tl_claim",
@@ -354,6 +368,7 @@ export function registerTlTools(pi: ExtensionAPI): void {
 		},
 	});
 
+	// tl_stale is a query tool; it sits here for alphabetical ordering among the lifecycle group
 	pi.registerTool({
 		name: "tl_stale",
 		label: "tl:stale",
@@ -364,6 +379,8 @@ export function registerTlTools(pi: ExtensionAPI): void {
 			return runTlTool(pi, { cwd: ctx.cwd, signal }, ["stale", "--json"], { parseJson: true });
 		},
 	});
+
+	// ── Dependency tools — task relationship links ──
 
 	pi.registerTool({
 		name: "tl_dep_add",

@@ -2,7 +2,7 @@ import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@e
 import { openTaskLedgerBoard, type BoardSelection } from "./board.js";
 import { runTl } from "./cli.js";
 import { hasLedger } from "./ledger.js";
-import { buildCapturePrompt, buildTaskWorkflowPrompt, workflowActionForBoardSelection } from "./prompts.js";
+import { buildCapturePrompt, buildTriagePrompt, buildTaskWorkflowPrompt, workflowActionForBoardSelection } from "./prompts.js";
 
 const TL_BOARD_SHORTCUT = "alt+l";
 
@@ -30,6 +30,19 @@ export function registerTlCommands(pi: ExtensionAPI, onLedgerChanged?: (ctx: Ext
 
 			pi.sendUserMessage(buildCapturePrompt(todos), ctx.isIdle() ? undefined : { deliverAs: "followUp" });
 			ctx.ui.notify("Sent captured todos to the agent for refinement.", "info");
+		},
+	});
+
+	pi.registerCommand("tl-triage", {
+		description: "Ask the agent to triage the task ledger for duplicates, gaps, stale items, and missing dependencies",
+		handler: async (_args, ctx) => {
+			if (!hasLedger(ctx)) {
+				ctx.ui.notify("No task ledger found. Run /tl-init first.", "info");
+				return;
+			}
+
+			pi.sendUserMessage(buildTriagePrompt(), ctx.isIdle() ? undefined : { deliverAs: "followUp" });
+			ctx.ui.notify("Sent triage request to the agent.", "info");
 		},
 	});
 

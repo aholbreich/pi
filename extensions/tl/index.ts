@@ -1,8 +1,8 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { registerTlCommands } from "./commands.js";
 import { hasLedger } from "./ledger.js";
-import { TaskLedgerOverlay } from "./overlay.js";
-import { registerTlTools } from "./tools.js";
+import { TaskLedgerOverlay } from "./task-summary-overlay.js";
+import { registerTlTools } from "./agent-tools.js";
 
 /**
  * Main entry point for the Pi extension.

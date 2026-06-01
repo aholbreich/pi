@@ -8,7 +8,8 @@ created_at: 2026-05-24T19:59:25Z
 updated_at: 2026-05-24T19:59:25Z
 created_by: pi-agent:tl-capture
 assignee: null
-depends_on: []
+depends_on:
+  - task-paj
 claim:
   actor: null
   claimed_at: null

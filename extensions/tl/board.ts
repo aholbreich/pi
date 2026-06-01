@@ -4,6 +4,17 @@ import { taskLabel, tasksFromJson, type TaskSummary } from "./tasks.js";
 
 const BOARD_MAX_VISIBLE_TASKS = 14;
 
+// Arrow key escape sequences across terminal protocols:
+// - Legacy CSI:   \x1b[A  / \x1b[B
+// - SS3:          \x1bOA  / \x1bOB
+// - Kitty CSI-u:  \x1b[1;<mod>A / \x1b[1;<mod>B  (mod=1 is no modifier)
+// - Kitty CSI-u with event type: \x1b[1;<mod>:<event>A/B
+const ARROW_UP_RE = /^\x1b\[A$|^\x1bOA$|^\x1b\[1;\d+(?::\d+)?A$/;
+const ARROW_DOWN_RE = /^\x1b\[B$|^\x1bOB$|^\x1b\[1;\d+(?::\d+)?B$/;
+
+function isArrowUp(data: string): boolean { return ARROW_UP_RE.test(data); }
+function isArrowDown(data: string): boolean { return ARROW_DOWN_RE.test(data); }
+
 type BoardAction = "implement" | "refine" | "review" | "plan";
 type BoardMode = "list" | "details";
 
@@ -127,11 +138,11 @@ class TaskLedgerBoardComponent {
 			this.backToList();
 			return;
 		}
-		if (this.mode === "list" && (data === "\u001b[A" || data === "k")) {
+		if (this.mode === "list" && (isArrowUp(data) || data === "k")) {
 			this.move(-1);
 			return;
 		}
-		if (this.mode === "list" && (data === "\u001b[B" || data === "j")) {
+		if (this.mode === "list" && (isArrowDown(data) || data === "j")) {
 			this.move(1);
 			return;
 		}

@@ -48,11 +48,19 @@ export class TaskLedgerOverlay {
 	private tui: TuiHandle | undefined;
 	private snapshot: OverlaySnapshot = EMPTY_SNAPSHOT;
 	private versionLabel: string | undefined;
+	// Incrementing serial that cancels stale async refreshes.
+	// Each refresh() bumps this; the loadSnapshot callback checks it
+	// after the await so a newer refresh won't be overwritten.
 	private refreshSerial = 0;
 	private hidden = false;
 
 	constructor(private readonly pi: ExtensionAPI) {}
 
+	/**
+	 * Update the stored UI context. Called on every refresh and toggle.
+	 * When the context changes (e.g., session restart), resets the widget
+	 * registration so the next updateWidget call re-registers from scratch.
+	 */
 	setContext(ctx: Pick<ExtensionContext, "cwd"> & { ui: ExtensionUIContext }): void {
 		if (ctx.ui !== this.uiCtx) {
 			this.uiCtx = ctx.ui;
@@ -61,6 +69,11 @@ export class TaskLedgerOverlay {
 		}
 	}
 
+	/**
+	 * Main refresh entry point. Called after session events and successful
+	 * tl tool executions. Loads fresh snapshot data, updates the footer
+	 * status line, and re-renders the widget unless hidden.
+	 */
 	async refresh(ctx: Pick<ExtensionContext, "cwd" | "signal" | "hasUI"> & { ui: ExtensionUIContext }): Promise<void> {
 		if (!ctx.hasUI) return;
 		this.setContext(ctx);
@@ -87,6 +100,10 @@ export class TaskLedgerOverlay {
 		this.updateWidget();
 	}
 
+	/**
+	 * Toggle the overlay visibility. Hidden state survives refreshes within
+	 * a session. When shown, performs a full refresh to pick up current data.
+	 */
 	async toggle(ctx: Pick<ExtensionContext, "cwd" | "signal" | "hasUI"> & { ui: ExtensionUIContext }): Promise<void> {
 		this.setContext(ctx);
 		this.hidden = !this.hidden;
@@ -201,6 +218,17 @@ export class TaskLedgerOverlay {
 		);
 	}
 
+	/**
+	 * Render the passive overlay as an array of styled lines.
+	 *
+	 * Produces a header line with a section breakdown, then up to
+	 * MAX_OVERLAY_LINES of task rows per section (capped at
+	 * MAX_TASKS_PER_SECTION each), with overflow "N more …" indicators.
+	 * The final visible line uses └─ instead of ├─ for visual closure.
+	 *
+	 * @param theme  Pi theme for color styling
+	 * @param width  Available terminal width in characters
+	 */
 	private render(theme: Theme, width: number): string[] {
 		if (this.snapshot.error) {
 			return [
@@ -233,6 +261,10 @@ export class TaskLedgerOverlay {
 		return lines;
 	}
 
+	/**
+	 * Format a single task row: "├─ <icon> <section>: <id> [priority] <title>".
+	 * Truncates the combined text to fit within the available width.
+	 */
 	private renderTaskLine(theme: Theme, width: number, section: OverlaySection, task: TaskSummary): string {
 		const id = typeof task.id === "string" ? task.id : "unknown";
 		const title = typeof task.title === "string" ? task.title : "(untitled)";

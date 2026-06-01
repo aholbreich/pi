@@ -86,7 +86,7 @@ function taskJson(id = "task-abc") {
 test("extension registers current tools, slash commands, and shortcuts", () => {
 	const { tools, commands, handlers, shortcuts } = registerExtension();
 
-	assert.deepEqual([...commands.keys()], ["tl-capture", "tl-board", "tl-init"]);
+	assert.deepEqual([...commands.keys()], ["tl-capture", "tl-triage", "tl-board", "tl-init"]);
 	assert.ok(!commands.has("tl-ready"));
 	assert.ok(!commands.has("tl-show"));
 	assert.ok(!commands.has("tl-list-all"));
