@@ -13,7 +13,8 @@
   "pi": {
     "extensions": [
       "./extensions/tl/index.ts"
-    ]
+    ],
+    "image": "https://raw.githubusercontent.com/aholbreich/pi/main/docs/images/tl-board.png"
   },
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",
