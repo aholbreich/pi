@@ -59,6 +59,13 @@ function loadExtension() {
   return jiti("../extensions/tl/index.ts").default;
 }
 
+function loadKeys() {
+  const { createJiti } = loadJiti();
+  const jiti = createJiti(join(process.cwd(), "tests/extension.test.mjs"));
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+  return jiti("../extensions/tl/keys.ts");
+}
+
 const BOARD_RENDER_WIDTH = 80;
 
 const testTheme = {
@@ -285,7 +292,27 @@ When("the user presses the {string} key", function (this: BoardWorld, key: strin
 
 When("the user presses the Esc key", function (this: BoardWorld) {
   assert.ok(this.component);
-  this.component.handleInput("\u001b");
+  this.component.handleInput(loadKeys().BYTE_ESC);
+});
+
+When("the user presses the Kitty-encoded Esc key", function (this: BoardWorld) {
+  assert.ok(this.component);
+  this.component.handleInput(loadKeys().KITTY_ESC);
+});
+
+When("the user presses the Kitty-encoded Esc key with modifier", function (this: BoardWorld) {
+  assert.ok(this.component);
+  this.component.handleInput(loadKeys().KITTY_ESC_MOD1);
+});
+
+When("the user presses the modifyOtherKeys encoded Esc key", function (this: BoardWorld) {
+  assert.ok(this.component);
+  this.component.handleInput(loadKeys().MODIFY_OTHER_KEYS_ESC);
+});
+
+When("the user presses the Kitty-encoded Enter key", function (this: BoardWorld) {
+  assert.ok(this.component);
+  this.component.handleInput(loadKeys().KITTY_ENTER);
 });
 
 When("the user presses the {string} key again", function (this: BoardWorld, key: string) {

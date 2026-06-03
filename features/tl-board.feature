@@ -89,10 +89,36 @@ Feature: Task Ledger board navigation
     When the user presses the Esc key
     Then the board returns to the list view
 
+  Scenario: Press Kitty-encoded Esc in details view returns to list
+    Given the task ledger board is showing task details
+    When the user presses the Kitty-encoded Esc key
+    Then the board returns to the list view
+
+  Scenario: Press Kitty-encoded Esc with modifier in details view returns to list
+    Given the task ledger board is showing task details
+    When the user presses the Kitty-encoded Esc key with modifier
+    Then the board returns to the list view
+
+  Scenario: Press modifyOtherKeys encoded Esc in details view returns to list
+    Given the task ledger board is showing task details
+    When the user presses the modifyOtherKeys encoded Esc key
+    Then the board returns to the list view
+
   Scenario: Press Esc in list view closes the board
     Given the task ledger board is open
     When the user presses the Esc key
     Then the board overlay closes
+
+  Scenario: Press Kitty-encoded Esc in list view closes the board
+    Given the task ledger board is open
+    When the user presses the Kitty-encoded Esc key
+    Then the board overlay closes
+
+  Scenario: Press Kitty-encoded Enter opens task details
+    Given the task ledger board is open with a task "task-ready"
+    When the user presses the Kitty-encoded Enter key
+    Then the detail modal shows full task information for "task-ready"
+    And the help line indicates that "b" or "esc" returns to the list view
 
   Scenario: Press q in details view returns to list not close the board
     Given the task ledger board is showing task details
