@@ -241,7 +241,7 @@ export class TaskLedgerOverlay {
 	 * icon gets its own distinct color (error/warning/dim). Truncates the
 	 * title to fit within the available width.
 	 */
-	private renderTaskLine(theme: Theme, width: number, section: OverlaySection, task: TaskSummary): string {
+	private renderTaskLine(theme: Theme, width: number, section: OverlaySection, task: TaskSummary): string[] {
 		return renderTaskLine(theme, {
 			prefix: "├─ ",
 			prefixColor: "dim",
@@ -249,7 +249,7 @@ export class TaskLedgerOverlay {
 			task,
 			primaryColor: section.color,
 			width,
-		}).text;
+		}).map((r) => r.text);
 	}
 
 	private sections(): OverlaySection[] {
@@ -265,7 +265,7 @@ export function renderOverlayLines(
 	snapshot: OverlaySnapshot,
 	theme: Theme,
 	width: number,
-	renderTaskRow: (section: OverlaySection, task: TaskSummary, w: number) => string,
+	renderTaskRow: (section: OverlaySection, task: TaskSummary, w: number) => string[],
 ): string[] {
 	if (snapshot.error) {
 		return [
@@ -284,7 +284,11 @@ export function renderOverlayLines(
 		const visible = section.tasks.slice(0, MAX_TASKS_PER_SECTION);
 		for (const task of visible) {
 			if (lines.length >= MAX_OVERLAY_LINES) break;
-			lines.push(renderTaskRow(section, task, width));
+			const rows = renderTaskRow(section, task, width);
+			for (const row of rows) {
+				if (lines.length >= MAX_OVERLAY_LINES) break;
+				lines.push(row);
+			}
 		}
 		const remaining = section.tasks.length - visible.length;
 		if (remaining > 0 && lines.length < MAX_OVERLAY_LINES) {

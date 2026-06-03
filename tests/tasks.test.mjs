@@ -72,66 +72,70 @@ const baseOptions = {
 	width: 80,
 };
 
+/** Flatten all rendered lines into one string for content assertions. */
+function flatText(lines) { return lines.map((l) => l.text).join(""); }
+
 test("renderTaskLine produces non-empty text", () => {
 	const { renderTaskLine } = loadTasks();
 	const result = renderTaskLine(identityTheme, baseOptions);
-	assert.ok(result.text.length > 0);
-	assert.ok(result.visibleLength > 0);
+	assert.ok(result.length > 0);
+	assert.ok(result[0].text.length > 0);
+	assert.ok(result[0].visibleLength > 0);
 });
 
 test("renderTaskLine includes task id and title", () => {
 	const { renderTaskLine } = loadTasks();
 	const result = renderTaskLine(identityTheme, baseOptions);
-	assert.match(result.text, /task-1/);
-	assert.match(result.text, /Fix login bug/);
+	assert.match(flatText(result), /task-1/);
+	assert.match(flatText(result), /Fix login bug/);
 });
 
 test("renderTaskLine includes section icon", () => {
 	const { renderTaskLine } = loadTasks();
 	const result = renderTaskLine(identityTheme, { ...baseOptions, sectionIcon: "◐" });
-	assert.match(result.text, /◐/);
+	assert.match(flatText(result), /◐/);
 });
 
 test("renderTaskLine includes section label when provided", () => {
 	const { renderTaskLine } = loadTasks();
 	const result = renderTaskLine(identityTheme, { ...baseOptions, sectionLabel: "Ready" });
-	assert.match(result.text, /Ready/);
+	assert.match(flatText(result), /Ready/);
 });
 
 test("renderTaskLine shows tags when showTags is true", () => {
 	const { renderTaskLine } = loadTasks();
 	const result = renderTaskLine(identityTheme, { ...baseOptions, showTags: true });
-	assert.match(result.text, /#ux/);
-	assert.match(result.text, /#auth/);
+	assert.match(flatText(result), /#ux/);
+	assert.match(flatText(result), /#auth/);
 });
 
 test("renderTaskLine hides tags when showTags is false or omitted", () => {
 	const { renderTaskLine } = loadTasks();
 	const result = renderTaskLine(identityTheme, { ...baseOptions, showTags: false });
-	assert.doesNotMatch(result.text, /#ux/);
+	assert.doesNotMatch(flatText(result), /#ux/);
 
 	const result2 = renderTaskLine(identityTheme, baseOptions);
-	assert.doesNotMatch(result2.text, /#ux/);
+	assert.doesNotMatch(flatText(result2), /#ux/);
 });
 
 test("renderTaskLine hides tags when width is too narrow to fit them", () => {
 	const { renderTaskLine } = loadTasks();
-	// Very narrow width: tags should be dropped to fit id+title
+	// Very narrow width: tags should be dropped; title may wrap across lines.
 	const result = renderTaskLine(identityTheme, { ...baseOptions, showTags: true, width: 20 });
-	assert.doesNotMatch(result.text, /#ux/);
-	assert.match(result.text, /task-1/); // id still present
+	assert.doesNotMatch(flatText(result), /#ux/);
+	assert.match(flatText(result), /task-1/); // id still present
 });
 
 test("renderTaskLine includes prefix when provided", () => {
 	const { renderTaskLine } = loadTasks();
 	const result = renderTaskLine(identityTheme, { ...baseOptions, prefix: "▸ " });
-	assert.match(result.text, /▸/);
+	assert.match(flatText(result), /▸/);
 });
 
 test("renderTaskLine includes leading when provided", () => {
 	const { renderTaskLine } = loadTasks();
 	const result = renderTaskLine(identityTheme, { ...baseOptions, leading: "├─ " });
-	assert.match(result.text, /├─/);
+	assert.match(flatText(result), /├─/);
 });
 
 // ---------------------------------------------------------------------------
@@ -142,31 +146,38 @@ test("renderTaskLine fits within width budget", () => {
 	const { renderTaskLine } = loadTasks();
 	for (const w of [20, 30, 40, 60, 80, 120]) {
 		const result = renderTaskLine(identityTheme, { ...baseOptions, width: w, showTags: true });
-		assert.ok(result.visibleLength <= w, `visibleLength ${result.visibleLength} > width ${w}`);
+		for (const line of result) {
+			assert.ok(line.visibleLength <= w, `visibleLength ${line.visibleLength} > width ${w}`);
+		}
 	}
 });
 
-test("renderTaskLine truncates long title with ellipsis", () => {
+test("renderTaskLine wraps long title instead of truncating with ellipsis", () => {
 	const { renderTaskLine } = loadTasks();
 	const longTask = { ...baseTask, title: "A".repeat(200) };
 	const result = renderTaskLine(identityTheme, { ...baseOptions, task: longTask, width: 40, showTags: false });
-	assert.ok(result.text.includes("…"), "expected ellipsis in truncated title");
-	assert.ok(result.visibleLength <= 40);
+	// Long titles wrap to multiple lines — no ellipsis truncation.
+	assert.ok(result.length > 1, "long title should produce multiple wrapped lines");
+	assert.ok(!flatText(result).includes("…"), "wrapped title should not contain ellipsis");
+	for (const line of result) {
+		assert.ok(line.visibleLength <= 40, `each line should fit within width 40, got ${line.visibleLength}`);
+	}
 });
 
 test("renderTaskLine handles minimum width of 1", () => {
 	const { renderTaskLine } = loadTasks();
 	const result = renderTaskLine(identityTheme, { ...baseOptions, width: 1, showTags: false });
-	// At width=1 the title budget is clamped to 1, but prefix + id + icon
-	// alone exceed 1, so visibleLength will be > 1. The function never crashes.
-	assert.ok(result.text.length >= 1);
-	assert.ok(result.visibleLength > 1, "minimum width=1 still renders full id + icon");
+	// At width=1 the first line still renders full id + icon (they exceed 1).
+	// Continuation lines exist because title wraps. The function never crashes.
+	assert.ok(result.length >= 1);
+	assert.ok(result[0].text.length >= 1);
+	assert.ok(result[0].visibleLength > 1, "minimum width=1 still renders full id + icon");
 });
 
-test("renderTaskLine preserves id even when title is truncated to empty", () => {
+test("renderTaskLine preserves id even when title wraps", () => {
 	const { renderTaskLine } = loadTasks();
 	const result = renderTaskLine(identityTheme, { ...baseOptions, width: 10, showTags: false });
-	assert.match(result.text, /task-1/);
+	assert.match(flatText(result), /task-1/);
 });
 
 // ---------------------------------------------------------------------------
@@ -177,42 +188,42 @@ test("renderTaskLine uses 'unknown' for missing id", () => {
 	const { renderTaskLine } = loadTasks();
 	const task = { title: "No ID" };
 	const result = renderTaskLine(identityTheme, { ...baseOptions, task, showTags: false });
-	assert.match(result.text, /unknown/);
+	assert.match(flatText(result), /unknown/);
 });
 
 test("renderTaskLine uses '(untitled)' for missing title", () => {
 	const { renderTaskLine } = loadTasks();
 	const task = { id: "t1" };
 	const result = renderTaskLine(identityTheme, { ...baseOptions, task, showTags: false });
-	assert.match(result.text, /\(untitled\)/);
+	assert.match(flatText(result), /\(untitled\)/);
 });
 
 test("renderTaskLine handles null title gracefully", () => {
 	const { renderTaskLine } = loadTasks();
 	const task = { id: "t2", title: null };
 	const result = renderTaskLine(identityTheme, { ...baseOptions, task, showTags: false });
-	assert.match(result.text, /\(untitled\)/);
+	assert.match(flatText(result), /\(untitled\)/);
 });
 
 test("renderTaskLine handles non-string id gracefully", () => {
 	const { renderTaskLine } = loadTasks();
 	const task = { id: 42, title: "Numeric ID" };
 	const result = renderTaskLine(identityTheme, { ...baseOptions, task, showTags: false });
-	assert.match(result.text, /unknown/);
+	assert.match(flatText(result), /unknown/);
 });
 
 test("renderTaskLine handles missing tags gracefully", () => {
 	const { renderTaskLine } = loadTasks();
 	const task = { id: "t3", title: "No tags" };
 	const result = renderTaskLine(identityTheme, { ...baseOptions, task, showTags: true });
-	assert.doesNotMatch(result.text, /#/);
+	assert.doesNotMatch(flatText(result), /#/);
 });
 
 test("renderTaskLine handles non-array tags gracefully", () => {
 	const { renderTaskLine } = loadTasks();
 	const task = { id: "t4", title: "Bad tags", tags: "not-an-array" };
 	const result = renderTaskLine(identityTheme, { ...baseOptions, task, showTags: true });
-	assert.doesNotMatch(result.text, /#/);
+	assert.doesNotMatch(flatText(result), /#/);
 });
 
 // ---------------------------------------------------------------------------
@@ -222,42 +233,42 @@ test("renderTaskLine handles non-array tags gracefully", () => {
 test("renderTaskLine applies primaryColor to id and title text", () => {
 	const { renderTaskLine } = loadTasks();
 	const result = renderTaskLine(markedTheme, { ...baseOptions, showTags: false });
-	assert.match(result.text, /\[accent\]/);
-	assert.match(result.text, /task-1/);
-	assert.match(result.text, /Fix login bug/);
+	assert.match(flatText(result), /\[accent\]/);
+	assert.match(flatText(result), /task-1/);
+	assert.match(flatText(result), /Fix login bug/);
 });
 
 test("renderTaskLine applies prefixColor to prefix", () => {
 	const { renderTaskLine } = loadTasks();
 	const result = renderTaskLine(markedTheme, { ...baseOptions, prefix: "▸ ", prefixColor: "dim" });
-	assert.match(result.text, /\[dim\]▸ /);
+	assert.match(flatText(result), /\[dim\]▸ /);
 });
 
 test("renderTaskLine applies priority color to priority icon", () => {
 	const { renderTaskLine } = loadTasks();
 	// medium → warning
 	const result = renderTaskLine(markedTheme, { ...baseOptions, showTags: false });
-	assert.match(result.text, /\[warning\]▲/);
+	assert.match(flatText(result), /\[warning\]▲/);
 });
 
 test("renderTaskLine applies tagColor to tags", () => {
 	const { renderTaskLine } = loadTasks();
 	const result = renderTaskLine(markedTheme, { ...baseOptions, showTags: true, tagColor: "dim" });
 	// Tags are wrapped: [dim] #ux #auth[/dim]
-	assert.match(result.text, /\[dim\].*#ux.*#auth.*\[\/dim\]/);
+	assert.match(flatText(result), /\[dim\].*#ux.*#auth.*\[\/dim\]/);
 });
 
 test("renderTaskLine applies bold when selected", () => {
 	const { renderTaskLine } = loadTasks();
 	const result = renderTaskLine(markedTheme, { ...baseOptions, selected: true, showTags: false });
-	assert.match(result.text, /<b>/);
-	assert.match(result.text, /task-1/);
+	assert.match(flatText(result), /<b>/);
+	assert.match(flatText(result), /task-1/);
 });
 
 test("renderTaskLine does not apply bold when not selected", () => {
 	const { renderTaskLine } = loadTasks();
 	const result = renderTaskLine(markedTheme, { ...baseOptions, selected: false, showTags: false });
-	assert.doesNotMatch(result.text, /<b>/);
+	assert.doesNotMatch(flatText(result), /<b>/);
 });
 
 // ---------------------------------------------------------------------------

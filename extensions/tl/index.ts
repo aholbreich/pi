@@ -31,8 +31,7 @@ export default function taskLedgerExtension(pi: ExtensionAPI): void {
 		};
 	});
 
-	pi.on("tool_execution_end", async (event, ctx) => {
-		if (event.toolName !== "tl_bulk_create" || event.isError) return;
+	pi.on("turn_end", async (_event, ctx) => {
 		await overlay.refresh(ctx);
 	});
 

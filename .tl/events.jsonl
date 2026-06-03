@@ -208,3 +208,13 @@
 {"time":"2026-06-03T16:53:55Z","event":"created","task_id":"task-w2k","actor":"human"}
 {"time":"2026-06-03T16:53:55Z","event":"created","task_id":"task-28g","actor":"human"}
 {"time":"2026-06-03T16:54:03Z","event":"dependency_added","task_id":"task-28g"}
+{"time":"2026-06-03T16:58:52Z","event":"claimed","task_id":"task-mom","actor":"pi-agent"}
+{"time":"2026-06-03T17:02:13Z","event":"note_added","task_id":"task-mom","actor":"pi-agent"}
+{"time":"2026-06-03T17:02:16Z","event":"closed","task_id":"task-mom","actor":"pi-agent"}
+{"time":"2026-06-03T17:04:44Z","event":"claimed","task_id":"task-l5m","actor":"pi-agent"}
+{"time":"2026-06-03T17:10:38Z","event":"note_added","task_id":"task-l5m","actor":"pi-agent"}
+{"time":"2026-06-03T17:10:40Z","event":"closed","task_id":"task-l5m","actor":"pi-agent"}
+{"time":"2026-06-03T17:11:48Z","event":"created","task_id":"task-wsj","actor":"human"}
+{"time":"2026-06-03T17:12:16Z","event":"created","task_id":"task-tra","actor":"human"}
+{"time":"2026-06-03T17:13:06Z","event":"cancelled","task_id":"task-wsj","actor":"main-pc"}
+{"time":"2026-06-03T17:13:06Z","event":"removed","task_id":"task-wsj","actor":"main-pc","value":"test task served its purpose"}

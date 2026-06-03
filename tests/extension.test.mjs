@@ -100,7 +100,7 @@ test("extension registers current tools, slash commands, and shortcuts", () => {
 	assert.deepEqual(handlers.map((h) => h.event), [
 		"session_start",
 		"before_agent_start",
-		"tool_execution_end",
+		"turn_end",
 		"session_compact",
 		"session_tree",
 		"session_shutdown",
@@ -205,10 +205,10 @@ test("shared task row renderer omits status words and colors tags separately", (
 		tagColor: "muted",
 	});
 
-	assert.doesNotMatch(row.text, /Ready:|\/open/);
-	assert.match(row.text, /\[accent\]▶ ○ task-board /);
-	assert.match(row.text, /\[warning\]▲\[\/warning\]/);
-	assert.match(row.text, /\[muted\] #ux\[\/muted\]/);
+	assert.doesNotMatch(row[0].text, /Ready:|\/open/);
+	assert.match(row[0].text, /\[accent\]▶ ○ task-board /);
+	assert.match(row[0].text, /\[warning\]▲\[\/warning\]/);
+	assert.match(row[0].text, /\[muted\] #ux\[\/muted\]/);
 });
 
 test("tl-capture sends rough todos to the agent without creating tasks", async () => {

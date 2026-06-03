@@ -1,4 +1,4 @@
-import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { openTaskLedgerBoard, type BoardSelection } from "./board.js";
 import { runTl } from "./cli.js";
 import { hasLedger } from "./ledger.js";
@@ -13,7 +13,7 @@ const TL_BOARD_SHORTCUT = "alt+l";
  * They are different from tools: tools are called by the model, commands are
  * usually called directly by the user.
  */
-export function registerTlCommands(pi: ExtensionAPI, onLedgerChanged?: (ctx: ExtensionCommandContext) => Promise<void>): void {
+export function registerTlCommands(pi: ExtensionAPI, onLedgerChanged?: (ctx: ExtensionContext) => Promise<void>): void {
 	pi.registerCommand("tl-capture", {
 		description: "Capture rough todos and ask the agent to refine them into task ledger tasks",
 		handler: async (args, ctx) => {
@@ -48,12 +48,12 @@ export function registerTlCommands(pi: ExtensionAPI, onLedgerChanged?: (ctx: Ext
 
 	pi.registerCommand("tl-board", {
 		description: "Open a keyboard-navigable Task Ledger board overlay",
-		handler: async (_args, ctx) => openBoardAndHandleSelection(pi, ctx),
+		handler: async (_args, ctx) => openBoardAndHandleSelection(pi, ctx, onLedgerChanged),
 	});
 
 	pi.registerShortcut(TL_BOARD_SHORTCUT, {
 		description: "Open Task Ledger board",
-		handler: async (ctx) => openBoardAndHandleSelection(pi, ctx),
+		handler: async (ctx) => openBoardAndHandleSelection(pi, ctx, onLedgerChanged),
 	});
 
 	pi.registerCommand("tl-init", {
@@ -79,8 +79,8 @@ export function registerTlCommands(pi: ExtensionAPI, onLedgerChanged?: (ctx: Ext
 	});
 }
 
-async function openBoardAndHandleSelection(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void> {
-	const selection = await openTaskLedgerBoard(pi, ctx);
+async function openBoardAndHandleSelection(pi: ExtensionAPI, ctx: ExtensionContext, onLedgerChanged?: (ctx: ExtensionContext) => Promise<void>): Promise<void> {
+	const selection = await openTaskLedgerBoard(pi, ctx, onLedgerChanged);
 	if (!selection) return;
 	await handleBoardSelection(pi, ctx, selection);
 }

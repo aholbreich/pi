@@ -513,13 +513,13 @@ test("render at width 40 still shows borders and title", () => {
 	assert.match(lines, /Task Ledger Board/);
 });
 
-test("long title is truncated at narrow width", () => {
+test("long title wraps instead of truncating at narrow width", () => {
 	const ids = ["task-with-very-long-id"];
 	const c = createComponent({
 		sections: [section("Ready", "○", ids)],
 	});
 	const lines = c.render(50).join("\n");
-	// Task ID appears verbatim; title may be truncated with ellipsis
+	// Task ID appears verbatim; title wraps to multiple lines without ellipsis.
 	assert.match(lines, /task-with-very-long-id/);
-	assert.match(lines, /…/); // truncation ellipsis present
+	assert.doesNotMatch(lines, /…/); // no truncation ellipsis
 });

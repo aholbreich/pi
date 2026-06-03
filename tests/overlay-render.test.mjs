@@ -24,7 +24,7 @@ function renderTaskRow(section, task, width) {
 		task,
 		primaryColor: section.color,
 		width,
-	}).text;
+	}).map((r) => r.text);
 }
 
 function render(snapshot, width = 80) {

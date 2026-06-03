@@ -34,7 +34,7 @@ type BoardTui = { requestRender(): void };
 
 type PanelColor = TaskVisualColor;
 
-export async function openTaskLedgerBoard(pi: ExtensionAPI, ctx: ExtensionContext): Promise<BoardSelection | undefined> {
+export async function openTaskLedgerBoard(pi: ExtensionAPI, ctx: ExtensionContext, onLedgerChanged?: (ctx: ExtensionContext) => Promise<void>): Promise<BoardSelection | undefined> {
 	const sections = await loadBoardSections(pi, ctx);
 	const entries = sections.flatMap((section) => section.tasks.map((task) => taskEntry(section, task))).filter((entry): entry is BoardEntry => entry !== undefined);
 	if (entries.length === 0) {
@@ -54,6 +54,7 @@ export async function openTaskLedgerBoard(pi: ExtensionAPI, ctx: ExtensionContex
 				if (!confirmed) return false;
 				const reason = await ctx.ui.input("Reason for cancellation", "cancelled from board");
 				const run = await runTl(pi, ctx, ["cancel", id, "--message", reason || "cancelled from board"]);
+				if (run.exitCode === 0 && onLedgerChanged) await onLedgerChanged(ctx);
 				ctx.ui.notify(run.exitCode === 0 ? `Cancelled ${id}.` : run.stderr.trim() || `Cancel failed`, run.exitCode === 0 ? "info" : "error");
 				return run.exitCode === 0;
 			}
@@ -61,6 +62,7 @@ export async function openTaskLedgerBoard(pi: ExtensionAPI, ctx: ExtensionContex
 			if (!confirmed) return false;
 			const reason = await ctx.ui.input("Reason for removal", "created by mistake");
 			const run = await runTl(pi, ctx, ["remove", id, "--message", reason || "removed from board"]);
+			if (run.exitCode === 0 && onLedgerChanged) await onLedgerChanged(ctx);
 			ctx.ui.notify(run.exitCode === 0 ? `Removed ${id}.` : run.stderr.trim() || `Remove failed`, run.exitCode === 0 ? "info" : "error");
 			return run.exitCode === 0;
 		}),
@@ -260,7 +262,7 @@ export class TaskLedgerBoardComponent {
 			const pointer = isSelected ? "▸" : "·";
 			const color = isSelected ? "accent" : this.colorForSection(entry.section);
 			const innerWidth = Math.max(0, width - 4);
-			const row = renderTaskLine(this.theme, {
+			const rows = renderTaskLine(this.theme, {
 				prefix: `${pointer} `,
 				prefixColor: isSelected ? "accent" : "dim",
 				sectionIcon: entry.icon,
@@ -269,7 +271,7 @@ export class TaskLedgerBoardComponent {
 				width: innerWidth,
 				selected: isSelected,
 			});
-			lines.push(this.panelStyledLine(width, row.text, row.visibleLength));
+			for (const row of rows) lines.push(this.panelStyledLine(width, row.text, row.visibleLength));
 		}
 
 		const total = this.taskEntries().length;
@@ -283,20 +285,19 @@ export class TaskLedgerBoardComponent {
 	private renderDetails(width: number): string[] {
 		const selected = this.selectedEntry();
 		const header = "Task details";
-		let headerLine: string;
+		const lines: string[] = [];
 		if (selected) {
-			const row = renderTaskLine(this.theme, {
+			const rows = renderTaskLine(this.theme, {
 				sectionIcon: selected.icon,
 				task: selected.task,
 				primaryColor: "accent",
 				width: Math.max(0, width - 4),
 				selected: true,
 			});
-			headerLine = this.panelStyledLine(width, row.text, row.visibleLength);
+			for (const row of rows) lines.push(this.panelStyledLine(width, row.text, row.visibleLength));
 		} else {
-			headerLine = this.panelLine(width, header, "accent", true);
+			lines.push(this.panelLine(width, header, "accent", true));
 		}
-		const lines: string[] = [headerLine];
 		const detailLines = (this.detailsText ?? "").split(/\r?\n/).slice(0, 18);
 		for (const line of detailLines) lines.push(this.panelLine(width, this.detailsLoading ? line : line, this.detailsLoading ? "warning" : "text"));
 		return lines;
