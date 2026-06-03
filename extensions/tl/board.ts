@@ -113,6 +113,12 @@ export class TaskLedgerBoardComponent {
 		this.allEntries = sections.flatMap((section) =>
 			section.tasks.map((task) => taskEntry(section, task)).filter((e): e is BoardEntry => e !== undefined),
 		);
+
+		// Auto-expand to all-mode when focused view has exactly one entry —
+		// a board with a single row feels empty and hides useful context.
+		if (this.focusedEntries.length === 1 && this.allEntries.length > 1) {
+			this.viewMode = "all";
+		}
 	}
 
 	render(width: number): string[] {
