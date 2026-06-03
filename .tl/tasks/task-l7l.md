@@ -1,19 +1,19 @@
 ---
 id: task-l7l
 title: 'Board details mode: right border overflows on action key row'
-status: in_progress
+status: done
 priority: high
 type: bug
 created_at: 2026-06-03T20:35:16Z
-updated_at: 2026-06-03T20:36:37Z
+updated_at: 2026-06-03T20:38:24Z
 created_by: human
 assignee: null
 depends_on: []
 claim:
-  actor: pi-agent
-  claimed_at: 2026-06-03T20:36:37Z
-  expires_at: 2026-06-03T21:36:37Z
-  heartbeat_at: 2026-06-03T20:36:37Z
+  actor: null
+  claimed_at: null
+  expires_at: null
+  heartbeat_at: null
 tags:
   - extension
   - board
