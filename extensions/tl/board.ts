@@ -360,19 +360,9 @@ export class TaskLedgerBoardComponent {
 	private panelStyledLine(fullWidth: number, styledInner: string, visibleLength: number): string {
 		const innerWidth = Math.max(0, fullWidth - 4); // 2 chars left ("│ ") + 2 chars right (" │")
 		const padLen = Math.max(0, innerWidth - visibleLength);
-		const left = this.theme.fg("borderMuted", "│");
-		const right = this.theme.fg("borderMuted", "│");
+		const left = this.theme.fg("text", "│");
+		const right = this.theme.fg("text", "│");
 		return this.theme.bg("customMessageBg", `${left} ${styledInner}${" ".repeat(padLen)} ${right}`);
-	}
-
-	private centerLine(fullWidth: number, styledInner: string, visibleLength: number): string {
-		const innerWidth = Math.max(0, fullWidth - 4); // center within the same padded content area as rows
-		const padding = Math.max(0, innerWidth - visibleLength);
-		const leftPad = Math.floor(padding / 2);
-		const rightPad = padding - leftPad;
-		const left = this.theme.fg("borderMuted", "│");
-		const right = this.theme.fg("borderMuted", "│");
-		return this.theme.bg("customMessageBg", `${left} ${" ".repeat(leftPad)}${styledInner}${" ".repeat(rightPad)} ${right}`);
 	}
 
 	private keyFooterLines(fullWidth: number, keyRows: Array<Array<{ k: string; d: string }>>): string[] {
@@ -403,7 +393,7 @@ export class TaskLedgerBoardComponent {
 	}
 
 	private emptyLine(width: number): string {
-		return this.theme.bg("customMessageBg", `${this.theme.fg("borderMuted", "│")}${" ".repeat(Math.max(0, width - 2))}${this.theme.fg("borderMuted", "│")}`);
+		return this.theme.bg("customMessageBg", `${this.theme.fg("text", "│")}${" ".repeat(Math.max(0, width - 2))}${this.theme.fg("text", "│")}`);
 	}
 
 	private borderTop(width: number, title: string): string {
@@ -414,16 +404,16 @@ export class TaskLedgerBoardComponent {
 		const rightLen = borderLen - leftLen;
 		return this.theme.bg(
 			"customMessageBg",
-			`${this.theme.fg("borderMuted", `╭${"─".repeat(leftLen)}`)}${this.theme.fg("text", this.theme.bold(titleText))}${this.theme.fg("borderMuted", `${"─".repeat(rightLen)}╮`)}`,
+			`${this.theme.fg("text", `╭${"─".repeat(leftLen)}`)}${this.theme.fg("text", this.theme.bold(titleText))}${this.theme.fg("text", `${"─".repeat(rightLen)}╮`)}`,
 		);
 	}
 
 	private borderBottom(width: number): string {
-		return this.theme.bg("customMessageBg", this.theme.fg("borderMuted", `╰${"─".repeat(Math.max(0, width - 2))}╯`));
+		return this.theme.bg("customMessageBg", this.theme.fg("text", `╰${"─".repeat(Math.max(0, width - 2))}╯`));
 	}
 
 	private separatorLine(width: number): string {
-		return this.theme.bg("customMessageBg", this.theme.fg("borderMuted", `├${"─".repeat(Math.max(0, width - 2))}┤`));
+		return this.theme.bg("customMessageBg", this.theme.fg("text", `├${"─".repeat(Math.max(0, width - 2))}┤`));
 	}
 
 	private fitPlain(width: number, text: string): string {

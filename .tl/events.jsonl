@@ -252,3 +252,6 @@
 {"time":"2026-06-03T18:11:58Z","event":"dependency_added","task_id":"task-fvv"}
 {"time":"2026-06-03T18:12:52Z","event":"refined","task_id":"task-d1o"}
 {"time":"2026-06-03T18:12:52Z","event":"reference_added","task_id":"task-d1o","value":"README.md"}
+{"time":"2026-06-03T18:14:29Z","event":"claimed","task_id":"task-8ym","actor":"pi-agent"}
+{"time":"2026-06-03T18:15:19Z","event":"note_added","task_id":"task-8ym","actor":"pi-agent"}
+{"time":"2026-06-03T18:15:19Z","event":"closed","task_id":"task-8ym","actor":"pi-agent"}
