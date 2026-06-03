@@ -413,7 +413,7 @@ export class TaskLedgerBoardComponent {
 	}
 
 	private separatorLine(width: number): string {
-		return this.theme.bg("customMessageBg", this.theme.fg("text", `├${"─".repeat(Math.max(0, width - 2))}┤`));
+		return this.theme.bg("customMessageBg", this.theme.fg("borderMuted", `├${"─".repeat(Math.max(0, width - 2))}┤`));
 	}
 
 	private fitPlain(width: number, text: string): string {
