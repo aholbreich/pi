@@ -1,11 +1,11 @@
 ---
 id: task-tra
 title: Board detail view becomes unresponsive after lifecycle actions (cancel/remove)
-status: open
+status: done
 priority: high
 type: bug
 created_at: 2026-06-03T17:12:16Z
-updated_at: 2026-06-03T17:12:16Z
+updated_at: 2026-06-03T17:20:04Z
 created_by: human
 assignee: null
 depends_on: []
@@ -46,3 +46,7 @@ The confirm and input prompts should appear on top of the board (as stacked over
 
 - `extensions/tl/board.ts`: `openTaskLedgerBoard()` lines 53-68 (confirm/input inside overlay callback)
 - `extensions/tl/board.ts`: `TaskLedgerBoardComponent.runLifecycle()` line 321-326
+
+## Notes
+
+- 2026-06-03T17:20:04Z [pi-agent] note: Fixed: moved lifecycle flow (confirm→input→runTl) out of the overlay callback into openBoardAndHandleSelection loop. The board now closes via done({action:"cancel"/"remove"}) before confirm appears, so keyboard focus is never contested. After lifecycle completes, the loop re-opens the board. Removed onLifecycle callback and runLifecycle method from component.

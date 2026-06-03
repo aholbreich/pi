@@ -218,3 +218,9 @@
 {"time":"2026-06-03T17:12:16Z","event":"created","task_id":"task-tra","actor":"human"}
 {"time":"2026-06-03T17:13:06Z","event":"cancelled","task_id":"task-wsj","actor":"main-pc"}
 {"time":"2026-06-03T17:13:06Z","event":"removed","task_id":"task-wsj","actor":"main-pc","value":"test task served its purpose"}
+{"time":"2026-06-03T17:14:28Z","event":"claimed","task_id":"task-tra","actor":"pi-agent"}
+{"time":"2026-06-03T17:19:48Z","event":"created","task_id":"task-zxq","actor":"human"}
+{"time":"2026-06-03T17:19:48Z","event":"created","task_id":"task-olj","actor":"human"}
+{"time":"2026-06-03T17:20:04Z","event":"closed","task_id":"task-tra","actor":"pi-agent"}
+{"time":"2026-06-03T17:20:04Z","event":"note_added","task_id":"task-tra","actor":"pi-agent"}
+{"time":"2026-06-03T17:20:13Z","event":"claimed","task_id":"task-zxq","actor":"pi-agent"}

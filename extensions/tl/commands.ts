@@ -80,9 +80,46 @@ export function registerTlCommands(pi: ExtensionAPI, onLedgerChanged?: (ctx: Ext
 }
 
 async function openBoardAndHandleSelection(pi: ExtensionAPI, ctx: ExtensionContext, onLedgerChanged?: (ctx: ExtensionContext) => Promise<void>): Promise<void> {
-	const selection = await openTaskLedgerBoard(pi, ctx, onLedgerChanged);
-	if (!selection) return;
-	await handleBoardSelection(pi, ctx, selection);
+	// Loop: re-open the board after lifecycle actions (cancel/remove) so the user
+	// can continue browsing without the overlay losing keyboard focus.
+	while (true) {
+		const selection = await openTaskLedgerBoard(pi, ctx);
+		if (!selection) return;
+
+		if (selection.action === "cancel" || selection.action === "remove") {
+			const isCancel = selection.action === "cancel";
+			const confirmed = await ctx.ui.confirm(
+				isCancel ? "Cancel task?" : "Remove task?",
+				isCancel
+					? `Cancel ${selection.id}? This will mark the task as cancelled.`
+					: `Remove ${selection.id}? This cannot be undone.`,
+			);
+			if (!confirmed) continue; // back to board
+
+			const reason = await ctx.ui.input(
+				isCancel ? "Reason for cancellation" : "Reason for removal",
+				isCancel ? "cancelled from board" : "created by mistake",
+			);
+			const run = await runTl(pi, ctx, [
+				isCancel ? "cancel" : "remove",
+				selection.id,
+				"--message",
+				reason || (isCancel ? "cancelled from board" : "removed from board"),
+			]);
+			if (run.exitCode === 0 && onLedgerChanged) await onLedgerChanged(ctx);
+			ctx.ui.notify(
+				run.exitCode === 0
+					? `${isCancel ? "Cancelled" : "Removed"} ${selection.id}.`
+					: run.stderr.trim() || `${isCancel ? "Cancel" : "Remove"} failed`,
+				run.exitCode === 0 ? "info" : "error",
+			);
+			continue; // re-open board
+		}
+
+		// Workflow action (implement, refine, review, plan)
+		await handleBoardSelection(pi, ctx, selection);
+		return;
+	}
 }
 
 async function handleBoardSelection(pi: ExtensionAPI, ctx: ExtensionContext, selection: BoardSelection): Promise<void> {

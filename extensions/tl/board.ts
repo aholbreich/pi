@@ -6,7 +6,7 @@ import { renderTaskLine, tasksFromJson, type TaskSummary, type TaskVisualColor }
 const BOARD_MAX_VISIBLE_TASKS = 8;
 const BOARD_OVERLAY_WIDTH = 80;
 
-type BoardAction = "implement" | "refine" | "review" | "plan";
+type BoardAction = "implement" | "refine" | "review" | "plan" | "cancel" | "remove";
 type BoardMode = "list" | "details";
 type BoardViewMode = "focused" | "all";
 
@@ -34,7 +34,7 @@ type BoardTui = { requestRender(): void };
 
 type PanelColor = TaskVisualColor;
 
-export async function openTaskLedgerBoard(pi: ExtensionAPI, ctx: ExtensionContext, onLedgerChanged?: (ctx: ExtensionContext) => Promise<void>): Promise<BoardSelection | undefined> {
+export async function openTaskLedgerBoard(pi: ExtensionAPI, ctx: ExtensionContext): Promise<BoardSelection | undefined> {
 	const sections = await loadBoardSections(pi, ctx);
 	const entries = sections.flatMap((section) => section.tasks.map((task) => taskEntry(section, task))).filter((entry): entry is BoardEntry => entry !== undefined);
 	if (entries.length === 0) {
@@ -48,24 +48,7 @@ export async function openTaskLedgerBoard(pi: ExtensionAPI, ctx: ExtensionContex
 	};
 
 	return ctx.ui.custom<BoardSelection | undefined>(
-		(tui, theme, _keybindings, done) => new TaskLedgerBoardComponent(tui, theme, sections, loadDetails, done, async (action, id) => {
-			if (action === "cancel") {
-				const confirmed = await ctx.ui.confirm("Cancel task?", `Cancel ${id}? This will mark the task as cancelled.`);
-				if (!confirmed) return false;
-				const reason = await ctx.ui.input("Reason for cancellation", "cancelled from board");
-				const run = await runTl(pi, ctx, ["cancel", id, "--message", reason || "cancelled from board"]);
-				if (run.exitCode === 0 && onLedgerChanged) await onLedgerChanged(ctx);
-				ctx.ui.notify(run.exitCode === 0 ? `Cancelled ${id}.` : run.stderr.trim() || `Cancel failed`, run.exitCode === 0 ? "info" : "error");
-				return run.exitCode === 0;
-			}
-			const confirmed = await ctx.ui.confirm("Remove task?", `Remove ${id}? This cannot be undone.`);
-			if (!confirmed) return false;
-			const reason = await ctx.ui.input("Reason for removal", "created by mistake");
-			const run = await runTl(pi, ctx, ["remove", id, "--message", reason || "removed from board"]);
-			if (run.exitCode === 0 && onLedgerChanged) await onLedgerChanged(ctx);
-			ctx.ui.notify(run.exitCode === 0 ? `Removed ${id}.` : run.stderr.trim() || `Remove failed`, run.exitCode === 0 ? "info" : "error");
-			return run.exitCode === 0;
-		}),
+		(tui, theme, _keybindings, done) => new TaskLedgerBoardComponent(tui, theme, sections, loadDetails, done),
 		{
 			overlay: true,
 			overlayOptions: {
@@ -176,11 +159,13 @@ export class TaskLedgerBoardComponent {
 			return;
 		}
 		if (this.mode === "details" && data === "c") {
-			void this.runLifecycle("cancel");
+			const selected = this.selectedEntry();
+			if (selected) this.done({ action: "cancel", id: selected.id });
 			return;
 		}
 		if (this.mode === "details" && data === "x") {
-			void this.runLifecycle("remove");
+			const selected = this.selectedEntry();
+			if (selected) this.done({ action: "remove", id: selected.id });
 			return;
 		}
 		if (this.mode === "list" && data === "a") {
@@ -316,14 +301,6 @@ export class TaskLedgerBoardComponent {
 		this.selectedTaskIndex = 0;
 		this.scrollOffset = 0;
 		this.tui.requestRender();
-	}
-
-	private async runLifecycle(action: "cancel" | "remove"): Promise<void> {
-		if (!this.onLifecycle) return;
-		const selected = this.selectedEntry();
-		if (!selected) return;
-		const ok = await this.onLifecycle(action, selected.id);
-		if (ok) this.backToList();
 	}
 
 	private clampScroll(): void {

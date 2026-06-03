@@ -28,7 +28,7 @@ function tui() {
 	return { requestRender: () => { renders++; }, renders: () => renders };
 }
 
-function createComponent({ sections, loadDetails, done, onLifecycle }) {
+function createComponent({ sections, loadDetails, done }) {
 	const t = tui();
 	const { TaskLedgerBoardComponent } = loadBoard();
 	const c = new TaskLedgerBoardComponent(
@@ -37,7 +37,6 @@ function createComponent({ sections, loadDetails, done, onLifecycle }) {
 		sections,
 		loadDetails ?? (async () => "(no details)"),
 		done ?? (() => {}),
-		onLifecycle,
 	);
 	// Attach tui for assertion
 	c._tui = t;
@@ -389,52 +388,39 @@ test("action dispatches the currently selected task after navigation", () => {
 // Details mode lifecycle — cancel / remove in details view
 // ---------------------------------------------------------------------------
 
-test("\"c\" in details triggers cancel lifecycle callback", async () => {
-	let lifecycleCall;
+test("\"c\" in details dispatches cancel action via done", async () => {
+	let selection;
 	const c = createComponent({
 		sections: [section("Ready", "○", ["t1"])],
-		onLifecycle: async (action, id) => {
-			lifecycleCall = { action, id };
-			return true; // success → back to list
-		},
+		done: (r) => { selection = r; },
 	});
 	c.handleInput("\r");
 	await setImmediate();
 	c.handleInput("c");
-	// Wait for async lifecycle
-	await setImmediate();
-	assert.deepEqual(lifecycleCall, { action: "cancel", id: "t1" });
-	assert.match(renderLines(c), /↑.*↓.*navigate/); // back in list mode
+	assert.deepEqual(selection, { action: "cancel", id: "t1" });
 });
 
-test("\"x\" in details triggers remove lifecycle callback", async () => {
-	let lifecycleCall;
+test("\"x\" in details dispatches remove action via done", async () => {
+	let selection;
 	const c = createComponent({
 		sections: [section("Ready", "○", ["t1"])],
-		onLifecycle: async (action, id) => {
-			lifecycleCall = { action, id };
-			return true;
-		},
+		done: (r) => { selection = r; },
 	});
 	c.handleInput("\r");
 	await setImmediate();
 	c.handleInput("x");
-	await setImmediate();
-	assert.deepEqual(lifecycleCall, { action: "remove", id: "t1" });
+	assert.deepEqual(selection, { action: "remove", id: "t1" });
 });
 
 test("\"c\" and \"x\" have no effect in list mode", () => {
-	let lifecycleCall;
+	let selection;
 	const c = createComponent({
 		sections: [section("Ready", "○", ["t1"])],
-		onLifecycle: async (action, id) => {
-			lifecycleCall = { action, id };
-			return true;
-		},
+		done: (r) => { selection = r; },
 	});
 	c.handleInput("c");
 	c.handleInput("x");
-	assert.equal(lifecycleCall, undefined);
+	assert.equal(selection, undefined);
 });
 
 // ---------------------------------------------------------------------------

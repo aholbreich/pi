@@ -37,7 +37,9 @@
     "check": "tsc --noEmit",
     "test": "node --test tests/*.test.mjs",
     "test:bdd": "cucumber-js",
-    "test:all": "node --test tests/*.test.mjs && cucumber-js"
+    "test:all": "node --test tests/*.test.mjs && cucumber-js",
+    "release:dry": "node scripts/determine-version.js",
+    "version": "node -e \"const b=require('node:child_process').execSync('git branch --show-current',{encoding:'utf8'}).trim();if(b!=='main'){console.error('Must be on main branch to version. Current: '+b);process.exit(1);}const s=require('node:child_process').execSync('git status --porcelain',{encoding:'utf8'}).trim();if(s){console.error('Working tree not clean. Commit or stash changes first.');process.exit(1);}\""
   },
   "files": [
     "extensions",
