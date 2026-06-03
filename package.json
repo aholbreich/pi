@@ -1,6 +1,6 @@
 {
   "name": "@aholbreich/pi-tl",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "description": "Pi extension for the tl (task-ledger) CLI.",
   "type": "module",
   "keywords": [
