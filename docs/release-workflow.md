@@ -18,7 +18,7 @@ git push --follow-tags
 | Step | What | Where |
 |------|------|-------|
 | Determine bump | Reads git log since last `v*` tag, counts `feat:`/`fix:`/`BREAKING CHANGE:` | `scripts/determine-version.js` |
-| Validate | Blocks if not on `main` or tree is dirty | `package.json` `scripts.version` hook |
+| Validate | Blocks if not on `main` or tree is dirty | `package.json` `scripts.preversion` hook (`scripts/pre-version.js`) |
 | Bump + tag | `npm version` updates `package.json` version + creates `vX.Y.Z` git tag | Built-in |
 | Publish | Push of `v*` tag triggers CI → `npm publish` | `.github/workflows/publish.yml` |
 

@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * Pre-version hook — validates the repo is ready for `npm version`.
- * Called automatically by npm's `version` lifecycle.
+ * Called by npm's `preversion` lifecycle (runs BEFORE the version bump,
+ * unlike `version` which runs after npm already modified package.json).
  *
  * Checks:
  *   1. On main branch
