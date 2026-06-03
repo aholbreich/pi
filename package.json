@@ -1,6 +1,6 @@
 {
   "name": "@aholbreich/pi-tl",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Pi extension for the tl (task-ledger) CLI.",
   "type": "module",
   "keywords": [
@@ -39,7 +39,7 @@
     "test:bdd": "cucumber-js",
     "test:all": "node --test tests/*.test.mjs && cucumber-js",
     "release:dry": "node scripts/determine-version.js",
-    "version": "node -e \"const b=require('node:child_process').execSync('git branch --show-current',{encoding:'utf8'}).trim();if(b!=='main'){console.error('Must be on main branch to version. Current: '+b);process.exit(1);}const s=require('node:child_process').execSync('git status --porcelain',{encoding:'utf8'}).trim();if(s){console.error('Working tree not clean. Commit or stash changes first.');process.exit(1);}\""
+    "version": "node scripts/pre-version.js"
   },
   "files": [
     "extensions",
