@@ -230,35 +230,9 @@ export class TaskLedgerOverlay {
 	 * @param width  Available terminal width in characters
 	 */
 	private render(theme: Theme, width: number): string[] {
-		if (this.snapshot.error) {
-			return [
-				fitStyled(theme, width, "error", "▲", `Task Ledger: ${this.snapshot.error}`),
-			];
-		}
-
-		const sections = this.sections().filter((section) => section.tasks.length > 0);
-		const total = sections.reduce((sum, section) => sum + section.tasks.length, 0);
-		if (total === 0) return [];
-
-		const summary = sections.map((section) => `${section.tasks.length} ${section.label.toLowerCase()}`).join(" · ");
-		const lines = [fitStyled(theme, width, "accent", "●", `Task Ledger  ${summary}`)];
-
-		for (const section of sections) {
-			const visible = section.tasks.slice(0, MAX_TASKS_PER_SECTION);
-			for (const task of visible) {
-				if (lines.length >= MAX_OVERLAY_LINES) break;
-				lines.push(this.renderTaskLine(theme, width, section, task));
-			}
-			const remaining = section.tasks.length - visible.length;
-			if (remaining > 0 && lines.length < MAX_OVERLAY_LINES) {
-				lines.push(fitStyled(theme, width, "dim", "├─", `${remaining} more ${section.label.toLowerCase()}`));
-			}
-			if (lines.length >= MAX_OVERLAY_LINES) break;
-		}
-
-		const last = lines.length - 1;
-		if (last > 0) lines[last] = lines[last].replace("├─", "└─");
-		return lines;
+		return renderOverlayLines(this.snapshot, theme, width, (section, task, w) =>
+			this.renderTaskLine(theme, w, section, task),
+		);
 	}
 
 	/**
@@ -279,14 +253,59 @@ export class TaskLedgerOverlay {
 	}
 
 	private sections(): OverlaySection[] {
+		return overlaySections(this.snapshot);
+	}
+}
+
+/**
+ * Standalone render function — testable without instantiating TaskLedgerOverlay.
+ * Used by TaskLedgerOverlay.render() and by unit tests directly.
+ */
+export function renderOverlayLines(
+	snapshot: OverlaySnapshot,
+	theme: Theme,
+	width: number,
+	renderTaskRow: (section: OverlaySection, task: TaskSummary, w: number) => string,
+): string[] {
+	if (snapshot.error) {
 		return [
-			{ label: "Active", icon: "◐", color: "success", tasks: this.snapshot.inProgress },
-			{ label: "Blocked", icon: "▲", color: "error", tasks: this.snapshot.blocked },
-			{ label: "Pending", icon: "?", color: "warning", tasks: this.snapshot.pendingHuman },
-			{ label: "Ready", icon: "○", color: "accent", tasks: this.snapshot.ready },
-			{ label: "Stale", icon: "◇", color: "warning", tasks: this.snapshot.stale },
+			fitStyled(theme, width, "error", "▲", `Task Ledger: ${snapshot.error}`),
 		];
 	}
+
+	const sections = overlaySections(snapshot).filter((section) => section.tasks.length > 0);
+	const total = sections.reduce((sum, section) => sum + section.tasks.length, 0);
+	if (total === 0) return [];
+
+	const summary = sections.map((section) => `${section.tasks.length} ${section.label.toLowerCase()}`).join(" · ");
+	const lines = [fitStyled(theme, width, "accent", "●", `Task Ledger  ${summary}`)];
+
+	for (const section of sections) {
+		const visible = section.tasks.slice(0, MAX_TASKS_PER_SECTION);
+		for (const task of visible) {
+			if (lines.length >= MAX_OVERLAY_LINES) break;
+			lines.push(renderTaskRow(section, task, width));
+		}
+		const remaining = section.tasks.length - visible.length;
+		if (remaining > 0 && lines.length < MAX_OVERLAY_LINES) {
+			lines.push(fitStyled(theme, width, "dim", "├─", `${remaining} more ${section.label.toLowerCase()}`));
+		}
+		if (lines.length >= MAX_OVERLAY_LINES) break;
+	}
+
+	const last = lines.length - 1;
+	if (last > 0) lines[last] = lines[last].replace("├─", "└─");
+	return lines;
+}
+
+function overlaySections(snapshot: OverlaySnapshot): OverlaySection[] {
+	return [
+		{ label: "Active", icon: "◐", color: "success", tasks: snapshot.inProgress },
+		{ label: "Blocked", icon: "▲", color: "error", tasks: snapshot.blocked },
+		{ label: "Pending", icon: "?", color: "warning", tasks: snapshot.pendingHuman },
+		{ label: "Ready", icon: "○", color: "accent", tasks: snapshot.ready },
+		{ label: "Stale", icon: "◇", color: "warning", tasks: snapshot.stale },
+	];
 }
 
 function formatVersionLabel(stdout: string): string {

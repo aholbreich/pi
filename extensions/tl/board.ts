@@ -100,7 +100,7 @@ function taskEntry(section: BoardSection, task: TaskSummary): BoardEntry | undef
 	return { kind: "task", section: section.label, icon: section.icon, id, task };
 }
 
-class TaskLedgerBoardComponent {
+export class TaskLedgerBoardComponent {
 	private readonly focusedEntries: BoardEntry[];
 	private readonly allEntries: BoardEntry[];
 	private readonly sections: BoardSection[];

@@ -1,21 +1,10 @@
 import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { test } from "node:test";
-import { createRequire } from "node:module";
-
-const require = createRequire(import.meta.url);
-
-function loadJiti() {
-	try {
-		return require("jiti");
-	} catch {
-		// pi itself depends on jiti to load TypeScript extensions. This fallback keeps
-		// the test suite dependency-light while still using the same loader style.
-		return require(join(process.cwd(), "node_modules/@earendil-works/pi-coding-agent/node_modules/jiti/lib/jiti.cjs"));
-	}
-}
+import { loadTlModule } from "./helpers.mjs";
+import { loadJiti } from "./helpers.mjs";
+import { join } from "node:path";
 
 function loadExtension() {
 	const { createJiti } = loadJiti();
@@ -23,11 +12,7 @@ function loadExtension() {
 	return jiti("../extensions/tl/index.ts").default;
 }
 
-function loadTlTasks() {
-	const { createJiti } = loadJiti();
-	const jiti = createJiti(join(process.cwd(), "tests/extension.test.mjs"));
-	return jiti("../extensions/tl/tasks.ts");
-}
+function loadTlTasks() { return loadTlModule("tasks.ts"); }
 
 function registerExtension(overrides = {}) {
 	const tools = new Map();

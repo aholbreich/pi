@@ -59,13 +59,6 @@ function loadExtension() {
   return jiti("../extensions/tl/index.ts").default;
 }
 
-function loadKeys() {
-  const { createJiti } = loadJiti();
-  const jiti = createJiti(join(process.cwd(), "tests/extension.test.mjs"));
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-  return jiti("../extensions/tl/keys.ts");
-}
-
 const BOARD_RENDER_WIDTH = 80;
 
 const testTheme = {
@@ -77,9 +70,6 @@ const testTheme = {
 function taskJson(id: string) {
   return JSON.stringify([{ id, title: "Example task", status: "open", priority: "medium", tags: ["test"] }]);
 }
-
-function arrowUp(): string { return "\x1b[A"; }
-function arrowDown(): string { return "\x1b[B"; }
 
 function sectionIcon(section: string): string {
   const icons: Record<string, string> = {
@@ -223,38 +213,10 @@ Given("a task ledger repository has the following tasks:", function (this: Board
   });
 });
 
-function givenBoardWithTasks(this: BoardWorld, taskIds: string[], exec?: (cmd: string, args: string[]) => Promise<{ code: number; stdout: string; stderr: string }>) {
-  registerInto(this, exec ?? (async (_cmd: string, args: string[]) => {
-    if (args.includes("ready")) {
-      return { code: 0, stdout: JSON.stringify(taskIds.map(id => ({ id, title: `Task ${id}`, status: "open", priority: "medium", tags: [] }))), stderr: "" };
-    }
-    if (args.includes("done")) {
-      return { code: 0, stdout: JSON.stringify([{ id: "task-done", title: "A completed task", status: "done", priority: "low", tags: [] }]), stderr: "" };
-    }
-    if (args.includes("cancelled")) {
-      return { code: 0, stdout: JSON.stringify([{ id: "task-cancelled", title: "A cancelled task", status: "cancelled", priority: "low", tags: [] }]), stderr: "" };
-    }
-    return { code: 0, stdout: "[]", stderr: "" };
-  }));
-}
-
-Given("the task ledger board is open with multiple tasks", async function (this: BoardWorld) {
-  givenBoardWithTasks.call(this, ["task-a", "task-b", "task-c"]);
-  await openBoard(this);
-});
-
 Given("the task ledger board is open with a task {string}", async function (this: BoardWorld, taskId: string) {
   registerInto(this, async (_cmd: string, args: string[]) => {
     if (args.includes("ready")) return { code: 0, stdout: taskJson(taskId), stderr: "" };
     if (args.includes("show")) return { code: 0, stdout: `${taskId} full details`, stderr: "" };
-    return { code: 0, stdout: "[]", stderr: "" };
-  });
-  await openBoard(this);
-});
-
-Given("the task ledger board is open", async function (this: BoardWorld) {
-  registerInto(this, async (_cmd: string, args: string[]) => {
-    if (args.includes("ready")) return { code: 0, stdout: taskJson("task-ready"), stderr: "" };
     return { code: 0, stdout: "[]", stderr: "" };
   });
   await openBoard(this);
@@ -279,70 +241,15 @@ When("the task ledger board overlay is opened", async function (this: BoardWorld
   await openBoard(this);
 });
 
-When("the user presses the down arrow key twice", function (this: BoardWorld) {
-  assert.ok(this.component);
-  this.component.handleInput(arrowDown());
-  this.component.handleInput(arrowDown());
-});
-
 When("the user presses the {string} key", function (this: BoardWorld, key: string) {
   assert.ok(this.component);
   this.component.handleInput(key);
-});
-
-When("the user presses the Esc key", function (this: BoardWorld) {
-  assert.ok(this.component);
-  this.component.handleInput(loadKeys().BYTE_ESC);
-});
-
-When("the user presses the Kitty-encoded Esc key", function (this: BoardWorld) {
-  assert.ok(this.component);
-  this.component.handleInput(loadKeys().KITTY_ESC);
-});
-
-When("the user presses the Kitty-encoded Esc key with modifier", function (this: BoardWorld) {
-  assert.ok(this.component);
-  this.component.handleInput(loadKeys().KITTY_ESC_MOD1);
-});
-
-When("the user presses the modifyOtherKeys encoded Esc key", function (this: BoardWorld) {
-  assert.ok(this.component);
-  this.component.handleInput(loadKeys().MODIFY_OTHER_KEYS_ESC);
-});
-
-When("the user presses the Kitty-encoded Enter key", function (this: BoardWorld) {
-  assert.ok(this.component);
-  this.component.handleInput(loadKeys().KITTY_ENTER);
-});
-
-When("the user presses the {string} key again", function (this: BoardWorld, key: string) {
-  assert.ok(this.component);
-  this.component.handleInput(key);
-});
-
-When("the user selects that task", function (this: BoardWorld) {
-  assert.ok(this.component);
-  // Navigate to first task
-  this.component.handleInput("k");
 });
 
 When("the user selects that task and opens its details", async function (this: BoardWorld) {
   assert.ok(this.component);
   this.component.handleInput("\r");
   await new Promise((resolve) => setImmediate(resolve));
-});
-
-When("the user selects that task and requests {string}", function (this: BoardWorld, action: string) {
-  assert.ok(this.component);
-  this.component.handleInput(action.charAt(0));
-  // The board's done callback stored world.result = { action, id }.
-  // Simulate what handleBoardSelection in commands.ts does:
-  // it calls pi.sendUserMessage(buildTaskWorkflowPrompt(id, action)).
-  const selection = this.result as { action: string; id: string } | undefined;
-  assert.ok(selection, `expected board selection after requesting "${action}"`);
-  const actionLabel = action.charAt(0).toUpperCase() + action.slice(1);
-  // Match the existing test assertion pattern
-  this.sentMessages.push({ message: `${actionLabel} task ${selection.id}` });
 });
 
 When("the user presses the {string} shortcut", async function (this: BoardWorld, shortcut: string) {
@@ -363,60 +270,10 @@ Then("the board displays the task {string} under section {string}", function (th
   assert.doesNotMatch(line, new RegExp(`${section}:`));
 });
 
-Then("the third task in the list is selected", function (this: BoardWorld) {
-  assert.ok(this.component);
-  const lines = this.component.render(BOARD_RENDER_WIDTH).join("\n");
-  const selected = lines.split("\n").filter((l) => l.includes("▸"));
-  assert.equal(selected.length, 1);
-  assert.match(selected[0], /task-c/);
-});
-
-Then("the next task in the list is selected", function (this: BoardWorld) {
-  assert.ok(this.component);
-  const lines = this.component.render(BOARD_RENDER_WIDTH).join("\n");
-  const selected = lines.split("\n").filter((l) => l.includes("▸"));
-  assert.equal(selected.length, 1);
-  assert.match(selected[0], /task-b/);
-});
-
-Then("the board title line includes the text {string}", function (this: BoardWorld, text: string) {
-  assert.ok(this.component);
-  const titleLine = this.component.render(BOARD_RENDER_WIDTH).find((line) => line.includes("Task Ledger Board"));
-  assert.ok(titleLine, "expected title line");
-  assert.match(titleLine, new RegExp(text));
-});
-
-Then("the detail modal shows full task information for {string}", function (this: BoardWorld, taskId: string) {
-  assert.ok(this.component);
-  const lines = this.component.render(100).join("\n");
-  assert.match(lines, new RegExp(taskId));
-  assert.match(lines, /full details/);
-});
-
-Then("the help line indicates that {string} or {string} returns to the list view", function (this: BoardWorld, key1: string, key2: string) {
-  assert.ok(this.component);
-  const help = this.component.render(BOARD_RENDER_WIDTH).find((line) => line.includes(key1) && line.includes(key2));
-  assert.ok(help, `expected help line to include ${key1} and ${key2}`);
-});
-
 Then("the board returns to the list view", function (this: BoardWorld) {
   assert.ok(this.component);
   const lines = this.component.render(100).join("\n");
   assert.match(lines, /↑.*↓.*navigate/);
-});
-
-Then("the agent receives an implement workflow request for {string}", function (this: BoardWorld, taskId: string) {
-  assert.equal(this.sentMessages.length, 1);
-  assert.match(this.sentMessages[0].message, new RegExp(taskId));
-  assert.match(this.sentMessages[0].message, /Implement/i);
-});
-
-Then("the board overlay closes", function (this: BoardWorld) {
-  assert.equal(this.result, undefined);
-});
-
-Then("no workflow request is sent to the agent", function (this: BoardWorld) {
-  assert.equal(this.sentMessages.length, 0);
 });
 
 Then("the task ledger board overlay is visible", function (this: BoardWorld) {
@@ -459,35 +316,6 @@ Then("the selected task row uses a compact pointer", function (this: BoardWorld)
   const lines = this.component.render(BOARD_RENDER_WIDTH);
   const selected = lines.find((line) => line.includes("▸") && line.includes("task-borders"));
   assert.ok(selected, "expected selected row to use compact pointer");
-});
-
-Given("the user presses the {string} key to enter all-mode", function (this: BoardWorld, key: string) {
-  assert.ok(this.component);
-  this.component.handleInput(key);
-});
-
-Then("the help line shows {string} to indicate all-mode is active", function (this: BoardWorld, text: string) {
-  assert.ok(this.component);
-  const help = this.component.render(BOARD_RENDER_WIDTH).find((line) => line.includes(text));
-  assert.ok(help, `expected help line to include ${text}`);
-});
-
-Then("the help line shows {string} to indicate focused mode is active", function (this: BoardWorld, text: string) {
-  assert.ok(this.component);
-  const help = this.component.render(BOARD_RENDER_WIDTH).find((line) => line.includes(text));
-  assert.ok(help, `expected help line to include ${text}`);
-});
-
-Then("the board shows a {string} section", function (this: BoardWorld, section: string) {
-  assert.ok(this.component);
-  const lines = this.component.render(100).join("\n");
-  assert.match(lines, new RegExp(sectionIcon(section)));
-});
-
-Then("the board does not show a {string} section", function (this: BoardWorld, section: string) {
-  assert.ok(this.component);
-  const lines = this.component.render(100).join("\n");
-  assert.doesNotMatch(lines, new RegExp(sectionIcon(section)));
 });
 
 When("the user requests to cancel that task", async function (this: BoardWorld) {
