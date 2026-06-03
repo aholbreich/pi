@@ -305,6 +305,38 @@ test("Task Ledger board shortcut opens modal", async () => {
 	assert.equal(calls.length, 7);
 });
 
+test("tl-board remove lifecycle force-removes open tasks", async () => {
+	const calls = [];
+	let removed = false;
+	const { commands } = registerExtension({
+		exec: async (cmd, args) => {
+			calls.push({ cmd, args });
+			if (args.includes("ready")) return { code: 0, stdout: removed ? "[]" : taskJson("task-remove"), stderr: "" };
+			if (args.includes("remove")) {
+				removed = true;
+				return { code: 0, stdout: "Removed task-remove", stderr: "" };
+			}
+			return { code: 0, stdout: "[]", stderr: "" };
+		},
+	});
+	const { ctx } = makeCommandContext();
+	ctx.ui.custom = async (_factory, options) => {
+		assert.equal(options.overlay, true);
+		return { action: "remove", id: "task-remove" };
+	};
+	ctx.ui.confirm = async () => true;
+	ctx.ui.input = async () => "created by mistake";
+
+	await commands.get("tl-board").handler("", ctx);
+
+	const removeCall = calls.find((call) => call.args.includes("remove") && call.args.includes("task-remove"));
+	assert.ok(removeCall, "expected tl remove call");
+	assert.ok(removeCall.args.includes("--message"), "remove should include --message");
+	assert.ok(removeCall.args.includes("created by mistake"), "remove should include input reason");
+	assert.ok(removeCall.args.includes("--force"), "remove should include --force for open tasks");
+	assert.equal(removed, true);
+});
+
 test("tl-board shows task details inside the modal", async () => {
 	const calls = [];
 	let rendered = [];

@@ -34,8 +34,8 @@ type BoardTui = { requestRender(): void };
 
 type PanelColor = TaskVisualColor;
 
-export async function openTaskLedgerBoard(pi: ExtensionAPI, ctx: ExtensionContext): Promise<BoardSelection | undefined> {
-	const sections = await loadBoardSections(pi, ctx);
+export async function openTaskLedgerBoard(pi: ExtensionAPI, ctx: ExtensionContext, execCtx?: Pick<ExtensionContext, "cwd" | "signal">): Promise<BoardSelection | undefined> {
+	const sections = await loadBoardSections(pi, execCtx ?? ctx);
 	const entries = sections.flatMap((section) => section.tasks.map((task) => taskEntry(section, task))).filter((entry): entry is BoardEntry => entry !== undefined);
 	if (entries.length === 0) {
 		ctx.ui.notify("No ready, in-progress, blocked, pending, or stale task ledger tasks found.", "info");
@@ -60,7 +60,7 @@ export async function openTaskLedgerBoard(pi: ExtensionAPI, ctx: ExtensionContex
 	);
 }
 
-async function loadBoardSections(pi: ExtensionAPI, ctx: ExtensionContext): Promise<BoardSection[]> {
+async function loadBoardSections(pi: ExtensionAPI, ctx: Pick<ExtensionContext, "cwd" | "signal">): Promise<BoardSection[]> {
 	const definitions: Array<Omit<BoardSection, "tasks">> = [
 		{ label: "Ready", icon: "○", args: ["ready", "--json"] },
 		{ label: "In progress", icon: "◐", args: ["list", "--status", "in_progress", "--json"] },
@@ -103,7 +103,6 @@ export class TaskLedgerBoardComponent {
 		sections: BoardSection[],
 		private readonly loadDetails: (id: string) => Promise<string>,
 		private readonly done: (result: BoardSelection | undefined) => void,
-		private readonly onLifecycle?: (action: "cancel" | "remove", id: string) => Promise<boolean>,
 	) {
 		this.sections = sections;
 		this.focusedEntries = sections

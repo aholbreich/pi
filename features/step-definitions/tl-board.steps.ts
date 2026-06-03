@@ -339,7 +339,7 @@ When("the user requests to remove that task", async function (this: BoardWorld) 
   const confirmed = await this.ctx.ui.confirm?.("", "") ?? true;
   if (!confirmed) return;
   const reason = await this.ctx.ui.input?.("", "") ?? "created by mistake";
-  this.calls.push({ cmd: "tl", args: ["remove", selection.id, "--message", reason] });
+  this.calls.push({ cmd: "tl", args: ["remove", selection.id, "--message", reason, "--force"] });
 });
 
 Then("the task {string} is cancelled", function (this: BoardWorld, taskId: string) {
@@ -350,4 +350,5 @@ Then("the task {string} is removed with a reason", function (this: BoardWorld, t
   const call = this.calls.find(c => c.args.includes("remove") && c.args.includes(taskId));
   assert.ok(call, `expected tl remove call for ${taskId}`);
   assert.ok(call.args.includes("--message"), "expected remove to pass --message");
+  assert.ok(call.args.includes("--force"), "expected remove to pass --force for open tasks");
 });

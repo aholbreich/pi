@@ -82,8 +82,13 @@ export function registerTlCommands(pi: ExtensionAPI, onLedgerChanged?: (ctx: Ext
 async function openBoardAndHandleSelection(pi: ExtensionAPI, ctx: ExtensionContext, onLedgerChanged?: (ctx: ExtensionContext) => Promise<void>): Promise<void> {
 	// Loop: re-open the board after lifecycle actions (cancel/remove) so the user
 	// can continue browsing without the overlay losing keyboard focus.
+	//
+	// After the first overlay closes, ctx.signal may be aborted by Pi's overlay
+	// lifecycle. Use a fresh never-aborted signal for subsequent shell commands
+	// to ensure pi.exec runs fresh commands, not returning stale/cached data.
+	const execCtx = { cwd: ctx.cwd, signal: new AbortController().signal };
 	while (true) {
-		const selection = await openTaskLedgerBoard(pi, ctx);
+		const selection = await openTaskLedgerBoard(pi, ctx, execCtx);
 		if (!selection) return;
 
 		if (selection.action === "cancel" || selection.action === "remove") {
@@ -100,12 +105,14 @@ async function openBoardAndHandleSelection(pi: ExtensionAPI, ctx: ExtensionConte
 				isCancel ? "Reason for cancellation" : "Reason for removal",
 				isCancel ? "cancelled from board" : "created by mistake",
 			);
-			const run = await runTl(pi, ctx, [
+			const lifecycleArgs = [
 				isCancel ? "cancel" : "remove",
 				selection.id,
 				"--message",
 				reason || (isCancel ? "cancelled from board" : "removed from board"),
-			]);
+			];
+			if (!isCancel) lifecycleArgs.push("--force");
+			const run = await runTl(pi, execCtx, lifecycleArgs);
 			if (run.exitCode === 0 && onLedgerChanged) await onLedgerChanged(ctx);
 			ctx.ui.notify(
 				run.exitCode === 0
