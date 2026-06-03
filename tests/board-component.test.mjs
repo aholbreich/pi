@@ -509,3 +509,19 @@ test("long title wraps instead of truncating at narrow width", () => {
 	assert.match(lines, /task-with-very-long-id/);
 	assert.doesNotMatch(lines, /…/); // no truncation ellipsis
 });
+
+test("details mode key footer rows align to the exact right edge even with fewer items", async () => {
+	const c = createComponent({ sections: [section("Ready", "○", ["t1"])] });
+	c.handleInput("\r");
+	await setImmediate();
+	const lines = c.render(80);
+	
+	const keyLine1 = lines[lines.length - 3];
+	const keyLine2 = lines[lines.length - 2];
+	
+	const stripTags = (s) => s.replace(/\[\/?.*?\]/g, "").replace(/<\/?.*?>/g, "");
+	assert.equal(stripTags(keyLine1).length, 80);
+	assert.equal(stripTags(keyLine2).length, 80);
+	assert.ok(stripTags(keyLine1).endsWith(" │"));
+	assert.ok(stripTags(keyLine2).endsWith(" │"));
+});

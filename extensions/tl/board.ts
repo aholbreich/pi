@@ -394,7 +394,7 @@ export class TaskLedgerBoardComponent {
 				const visLen = k.length + 1 + d.length;
 				return keyStyled + descStyled + " ".repeat(Math.max(0, colWidth - visLen));
 			});
-			return this.panelStyledLine(fullWidth, cells.join(""), cols * colWidth);
+			return this.panelStyledLine(fullWidth, cells.join(""), row.length * colWidth);
 		});
 	}
 
