@@ -94,9 +94,11 @@ test("extension registers current tools, slash commands, and shortcuts", () => {
 
 	assert.deepEqual([...tools.keys()], ["tl_bulk_create"]);
 	assert.equal(tools.get("tl_bulk_create").label, "tl:bulk:create");
-	assert.equal(shortcuts.size, 2);
+	assert.equal(shortcuts.size, 4);
 	assert.equal(shortcuts.get("alt+l").description, "Open Task Ledger board");
 	assert.equal(shortcuts.get("alt+t").description, "Toggle Task Ledger overlay");
+	assert.equal(shortcuts.get("alt+i").description, "Implement top ready Task Ledger task");
+	assert.equal(shortcuts.get("alt+r").description, "Refine top ready Task Ledger task");
 	assert.deepEqual(handlers.map((h) => h.event), [
 		"session_start",
 		"before_agent_start",
@@ -148,6 +150,81 @@ test("Alt+T toggles the live task ledger overlay", async () => {
 	await shortcuts.get("alt+t").handler(ctx);
 	assert.notEqual(widgets.get("pi-tl-overlay").value, undefined);
 	assert.deepEqual(notifications.at(-1), { message: "Task Ledger overlay shown", level: "info" });
+});
+
+test("Alt+i claims and sends implement request for top ready task from overlay snapshot", async () => {
+	const cwd = mkdtempSync(join(tmpdir(), "pi-tl-test-"));
+	mkdirSync(join(cwd, ".tl"));
+	const calls = [];
+	const sentMessages = [];
+	const { handlers, shortcuts } = registerExtension({
+		exec: async (cmd, args) => {
+			calls.push({ cmd, args });
+			if (args.includes("--version")) return { code: 0, stdout: "tl version 1.0.0", stderr: "" };
+			if (args.includes("ready")) return { code: 0, stdout: taskJson("task-top"), stderr: "" };
+			if (args.includes("claim")) return { code: 0, stdout: "Claimed task-top", stderr: "" };
+			return { code: 0, stdout: "[]", stderr: "" };
+		},
+		sendUserMessage: (message, options) => sentMessages.push({ message, options }),
+	});
+	const { ctx, notifications } = makeCommandContext();
+	ctx.cwd = cwd;
+
+	await handlers.find((h) => h.event === "session_start").handler({}, ctx);
+	await shortcuts.get("alt+i").handler(ctx);
+
+	const claimCall = calls.find((call) => call.args.includes("claim") && call.args.includes("task-top"));
+	assert.ok(claimCall, "expected tl claim call for top ready task");
+	assert.equal(sentMessages.length, 1);
+	assert.match(sentMessages[0].message, /Implement task task-top/);
+	assert.deepEqual(notifications.at(-1), { message: "Claimed task-top and sent implement request to the agent.", level: "info" });
+});
+
+test("Alt+r sends refine request for top ready task without claiming", async () => {
+	const cwd = mkdtempSync(join(tmpdir(), "pi-tl-test-"));
+	mkdirSync(join(cwd, ".tl"));
+	const calls = [];
+	const sentMessages = [];
+	const { handlers, shortcuts } = registerExtension({
+		exec: async (cmd, args) => {
+			calls.push({ cmd, args });
+			if (args.includes("--version")) return { code: 0, stdout: "tl version 1.0.0", stderr: "" };
+			if (args.includes("ready")) return { code: 0, stdout: taskJson("task-refine"), stderr: "" };
+			return { code: 0, stdout: "[]", stderr: "" };
+		},
+		sendUserMessage: (message, options) => sentMessages.push({ message, options }),
+	});
+	const { ctx, notifications } = makeCommandContext();
+	ctx.cwd = cwd;
+
+	await handlers.find((h) => h.event === "session_start").handler({}, ctx);
+	await shortcuts.get("alt+r").handler(ctx);
+
+	assert.equal(calls.some((call) => call.args.includes("claim")), false);
+	assert.equal(sentMessages.length, 1);
+	assert.match(sentMessages[0].message, /Refine task task-refine/);
+	assert.deepEqual(notifications.at(-1), { message: "Sent refine request for task-refine to the agent.", level: "info" });
+});
+
+test("Alt+i notifies when cached overlay snapshot has no ready task", async () => {
+	const cwd = mkdtempSync(join(tmpdir(), "pi-tl-test-"));
+	mkdirSync(join(cwd, ".tl"));
+	const sentMessages = [];
+	const { handlers, shortcuts } = registerExtension({
+		exec: async (_cmd, args) => {
+			if (args.includes("--version")) return { code: 0, stdout: "tl version 1.0.0", stderr: "" };
+			return { code: 0, stdout: "[]", stderr: "" };
+		},
+		sendUserMessage: (message, options) => sentMessages.push({ message, options }),
+	});
+	const { ctx, notifications } = makeCommandContext();
+	ctx.cwd = cwd;
+
+	await handlers.find((h) => h.event === "session_start").handler({}, ctx);
+	await shortcuts.get("alt+i").handler(ctx);
+
+	assert.equal(sentMessages.length, 0);
+	assert.deepEqual(notifications.at(-1), { message: "No ready task available for Alt+i.", level: "info" });
 });
 
 test("session start renders a live task ledger overlay when a ledger exists", async () => {

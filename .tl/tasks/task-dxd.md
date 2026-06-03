@@ -1,11 +1,11 @@
 ---
 id: task-dxd
 title: Add Alt+i and Alt+r shortcuts to implement/refine top Ready task from overlay
-status: open
+status: done
 priority: medium
 type: task
 created_at: 2026-06-03T17:50:33Z
-updated_at: 2026-06-03T17:50:33Z
+updated_at: 2026-06-03T18:03:33Z
 created_by: human
 assignee: null
 depends_on: []
@@ -40,3 +40,7 @@ The hint should only appear when there's at least one Ready task. Use the overla
 **Implementation:**
 1. `index.ts` — register `Alt+i` and `Alt+r` shortcuts, read overlay snapshot to find top Ready task, claim/send agent prompt
 2. `task-summary-overlay.ts` — append `[Alt+i] [Alt+r]` suffix to the first Ready task row in `renderOverlayLines`, styled dim
+
+## Notes
+
+- 2026-06-03T18:03:33Z [pi-agent] note: Implemented Alt+i and Alt+r shortcuts using TaskLedgerOverlay cached snapshot. Alt+i claims top ready task then sends implement prompt; Alt+r sends refine prompt without claiming; both notify when no ready task is cached. Added firstReadyTaskId() on overlay and [Alt+i] [Alt+r] dim hint on first Ready row only. Added integration tests for shortcut registration, Alt+i claim+prompt, Alt+r prompt/no claim, no-ready notification, plus overlay render tests for hint visibility. Verification: npx tsc --noEmit clean; node --test tests/*.test.mjs 171 passing; tl-board BDD scenarios pass (full cucumber still includes unrelated undefined task-title-wrap feature).

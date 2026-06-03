@@ -24,7 +24,7 @@ function renderTaskRow(section, task, width) {
 		task,
 		primaryColor: section.color,
 		width,
-	}).map((r) => r.text);
+	});
 }
 
 function render(snapshot, width = 80) {
@@ -86,6 +86,18 @@ test("renders task rows with section icons", () => {
 test("renders task title", () => {
 	const lines = render({ ...EMPTY, ready: [task("task-abc", "Fix login redirect loop")] });
 	assert.match(lines.join("\n"), /Fix login redirect loop/);
+});
+
+test("renders Alt+i/Alt+r action hint on first ready task only", () => {
+	const lines = render({ ...EMPTY, ready: [task("t1", "First ready"), task("t2", "Second ready")] });
+	const joined = lines.join("\n");
+	assert.match(joined, /t1.*\[Alt\+i\]Impl \[Alt\+r\]Ref/);
+	assert.doesNotMatch(joined, /t2.*\[Alt\+i\]Impl \[Alt\+r\]Ref/);
+});
+
+test("does not render Alt+i/Alt+r action hint when there are no ready tasks", () => {
+	const lines = render({ ...EMPTY, inProgress: [task("t1", "Active task")] });
+	assert.doesNotMatch(lines.join("\n"), /\[Alt\+i\]Impl \[Alt\+r\]Ref/);
 });
 
 // ---------------------------------------------------------------------------

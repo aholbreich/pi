@@ -59,7 +59,7 @@ test("board renders title line with 'Task Ledger Board'", () => {
 
 test("board renders help line with navigation hints in list mode", () => {
 	const c = createComponent({ sections: [section("Ready", "○", ["t1"])] });
-	assert.match(renderLines(c), /↑.*↓.*navigate/);
+	assert.match(renderLines(c), /↑.*↓.*nav/);
 });
 
 test("board renders top and bottom borders", () => {
@@ -231,7 +231,7 @@ test("Escape in details mode returns to list", async () => {
 	c.handleInput("\r");
 	await setImmediate();
 	c.handleInput("\x1b");
-	assert.match(renderLines(c), /↑.*↓.*navigate/); // back in list mode
+	assert.match(renderLines(c), /↑.*↓.*nav/); // back in list mode
 	assert.equal(result, "not-called"); // done was NOT called
 });
 
@@ -258,7 +258,7 @@ test("\"q\" in details mode returns to list, does not close", async () => {
 	c.handleInput("\r");
 	await setImmediate();
 	c.handleInput("q");
-	assert.match(renderLines(c), /↑.*↓.*navigate/);
+	assert.match(renderLines(c), /↑.*↓.*nav/);
 	assert.equal(result, "not-called");
 });
 
@@ -271,7 +271,7 @@ test("\"b\" in details mode returns to list", async () => {
 	c.handleInput("\r");
 	await setImmediate();
 	c.handleInput("b");
-	assert.match(renderLines(c), /↑.*↓.*navigate/);
+	assert.match(renderLines(c), /↑.*↓.*nav/);
 });
 
 test("\"b\" in list mode has no effect", () => {
@@ -282,7 +282,7 @@ test("\"b\" in list mode has no effect", () => {
 	});
 	c.handleInput("b");
 	assert.equal(result, "not-called");
-	assert.match(renderLines(c), /↑.*↓.*navigate/);
+	assert.match(renderLines(c), /↑.*↓.*nav/);
 });
 
 // ---------------------------------------------------------------------------
@@ -297,7 +297,7 @@ test("\"a\" toggles from focused to all-mode", () => {
 		],
 	});
 	c.handleInput("a");
-	assert.match(renderLines(c), /a focused view/); // help line indicates all-mode
+	assert.match(renderLines(c), /a[ ]+focused/); // help line: a → toggle to focused
 	assert.match(renderLines(c), /✓/); // Done section icon visible
 });
 

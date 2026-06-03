@@ -1,11 +1,13 @@
 import type { ExtensionAPI, ExtensionContext, ExtensionUIContext, Theme } from "@earendil-works/pi-coding-agent";
 import { runTl } from "./cli.js";
 import { hasLedger } from "./ledger.js";
-import { renderTaskLine, tasksFromJson, type TaskSummary } from "./tasks.js";
+import { renderTaskLine, tasksFromJson, type RenderedLine, type TaskSummary } from "./tasks.js";
 
 const TL_OVERLAY_WIDGET_KEY = "pi-tl-overlay";
 const MAX_OVERLAY_LINES = 12;
 const MAX_TASKS_PER_SECTION = 3;
+const READY_ACTION_HINT = "[Alt+i]Impl [Alt+r]Ref";
+const READY_ACTION_HINT_SPACING = "  ";
 
 type TuiHandle = { requestRender(): void };
 type OverlayColor = "accent" | "success" | "warning" | "error" | "muted" | "dim";
@@ -120,6 +122,11 @@ export class TaskLedgerOverlay {
 	dispose(): void {
 		this.hide();
 		this.uiCtx = undefined;
+	}
+
+	firstReadyTaskId(): string | undefined {
+		const task = this.snapshot.ready.find((entry) => typeof entry.id === "string");
+		return typeof task?.id === "string" ? task.id : undefined;
 	}
 
 	private async ensureVersionLabel(ctx: Pick<ExtensionContext, "cwd" | "signal">): Promise<void> {
@@ -241,7 +248,7 @@ export class TaskLedgerOverlay {
 	 * icon gets its own distinct color (error/warning/dim). Truncates the
 	 * title to fit within the available width.
 	 */
-	private renderTaskLine(theme: Theme, width: number, section: OverlaySection, task: TaskSummary): string[] {
+	private renderTaskLine(theme: Theme, width: number, section: OverlaySection, task: TaskSummary): RenderedLine[] {
 		return renderTaskLine(theme, {
 			prefix: "├─ ",
 			prefixColor: "dim",
@@ -249,7 +256,7 @@ export class TaskLedgerOverlay {
 			task,
 			primaryColor: section.color,
 			width,
-		}).map((r) => r.text);
+		});
 	}
 
 	private sections(): OverlaySection[] {
@@ -265,7 +272,7 @@ export function renderOverlayLines(
 	snapshot: OverlaySnapshot,
 	theme: Theme,
 	width: number,
-	renderTaskRow: (section: OverlaySection, task: TaskSummary, w: number) => string[],
+	renderTaskRow: (section: OverlaySection, task: TaskSummary, w: number) => RenderedLine[],
 ): string[] {
 	if (snapshot.error) {
 		return [
@@ -280,14 +287,25 @@ export function renderOverlayLines(
 	const summary = sections.map((section) => `${section.tasks.length} ${section.label.toLowerCase()}`).join(" · ");
 	const lines = [fitStyled(theme, width, "accent", "●", `Task Ledger  ${summary}`)];
 
+	let readyHintShown = false;
 	for (const section of sections) {
 		const visible = section.tasks.slice(0, MAX_TASKS_PER_SECTION);
 		for (const task of visible) {
 			if (lines.length >= MAX_OVERLAY_LINES) break;
-			const rows = renderTaskRow(section, task, width);
+			const showReadyHint = section.label === "Ready" && !readyHintShown;
+			const hintWidth = READY_ACTION_HINT_SPACING.length + READY_ACTION_HINT.length;
+			const rowWidth = showReadyHint ? Math.max(1, width - hintWidth) : width;
+			const rows = renderTaskRow(section, task, rowWidth);
+			if (showReadyHint && rows.length > 0) {
+				rows[0] = {
+					text: rows[0].text + READY_ACTION_HINT_SPACING + theme.fg("dim", READY_ACTION_HINT),
+					visibleLength: rows[0].visibleLength + hintWidth,
+				};
+				readyHintShown = true;
+			}
 			for (const row of rows) {
 				if (lines.length >= MAX_OVERLAY_LINES) break;
-				lines.push(row);
+				lines.push(row.text);
 			}
 		}
 		const remaining = section.tasks.length - visible.length;

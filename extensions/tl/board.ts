@@ -118,10 +118,16 @@ export class TaskLedgerBoardComponent {
 	render(width: number): string[] {
 		const selected = this.selectedEntry();
 		const title = `Task Ledger Board${selected ? ` - ${selected.id}` : ""}`;
-		const toggleHint = this.viewMode === "all" ? "a focused view" : "a show all";
-		const helpText = this.mode === "details"
-			? `esc/b back • c cancel • x remove • i implement • r refine • v review • p plan`
-			: `esc close • ↑/k ↓/j navigate • enter/d details • ${toggleHint} • i implement • r refine • v review • p plan`;
+		const toggleHint = this.viewMode === "all" ? "focused" : "show all";
+		const keyRows = this.mode === "details"
+			? [
+					[{ k: "esc/b", d: "back" }, { k: "c", d: "cancel" }, { k: "x", d: "remove" }, { k: "i", d: "impl" }],
+					[{ k: "r", d: "refine" }, { k: "v", d: "review" }, { k: "p", d: "plan" }],
+				]
+			: [
+					[{ k: "esc", d: "close" }, { k: "↑/↓", d: "nav" }, { k: "enter", d: "detail" }, { k: "a", d: toggleHint }],
+					[{ k: "i", d: "impl" }, { k: "r", d: "refine" }, { k: "v", d: "review" }, { k: "p", d: "plan" }],
+				];
 		const lines = [
 			this.borderTop(width, title),
 			this.emptyLine(width),
@@ -137,7 +143,7 @@ export class TaskLedgerBoardComponent {
 		}
 		lines.push(this.separatorLine(width));
 		lines.push(this.emptyLine(width));
-		lines.push(...this.footerLines(width, helpText));
+		lines.push(...this.keyFooterLines(width, keyRows));
 		lines.push(this.borderBottom(width));
 		return lines;
 	}
@@ -369,24 +375,30 @@ export class TaskLedgerBoardComponent {
 		return this.theme.bg("customMessageBg", `${left} ${" ".repeat(leftPad)}${styledInner}${" ".repeat(rightPad)} ${right}`);
 	}
 
-	private footerLines(fullWidth: number, helpText: string): string[] {
+	private keyFooterLines(fullWidth: number, keyRows: Array<Array<{ k: string; d: string }>>): string[] {
 		const innerWidth = Math.max(1, fullWidth - 4);
-		const parts = helpText.split(" • ");
-		const rows: string[] = [];
-		let current = "";
-		for (const part of parts) {
-			const next = current ? `${current} • ${part}` : part;
-			if (next.length <= innerWidth || current.length === 0) {
-				current = next;
-				continue;
-			}
-			rows.push(current);
-			current = part;
+		const cols = keyRows[0].length;
+
+		// If content doesn't fit in columns, render each row as a plain dim line.
+		const maxCellLen = Math.max(...keyRows.flat().map(({ k, d }) => k.length + 1 + d.length));
+		const needed = maxCellLen * cols;
+		if (needed > innerWidth) {
+			return keyRows.map((row) => {
+				const text = row.map(({ k, d }) => `${k} ${d}`).join("  ");
+				const fitted = this.fitPlain(innerWidth, text);
+				return this.panelStyledLine(fullWidth, this.theme.fg("dim", fitted), fitted.length);
+			});
 		}
-		if (current) rows.push(current);
-		return rows.map((row) => {
-			const fitted = this.fitPlain(innerWidth, row);
-			return this.centerLine(fullWidth, this.theme.fg("dim", fitted), fitted.length);
+
+		const colWidth = Math.floor(innerWidth / cols);
+		return keyRows.map((row) => {
+			const cells = row.map(({ k, d }) => {
+				const keyStyled = this.theme.fg("accent", k);
+				const descStyled = this.theme.fg("dim", ` ${d}`);
+				const visLen = k.length + 1 + d.length;
+				return keyStyled + descStyled + " ".repeat(Math.max(0, colWidth - visLen));
+			});
+			return this.panelStyledLine(fullWidth, cells.join(""), cols * colWidth);
 		});
 	}
 

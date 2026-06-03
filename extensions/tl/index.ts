@@ -3,6 +3,8 @@ import { registerTlCommands } from "./commands.js";
 import { hasLedger } from "./ledger.js";
 import { TaskLedgerOverlay } from "./task-summary-overlay.js";
 import { registerTlTools } from "./agent-tools.js";
+import { runTl } from "./cli.js";
+import { buildTaskWorkflowPrompt } from "./prompts.js";
 
 /**
  * Main entry point for the Pi extension.
@@ -50,6 +52,38 @@ export default function taskLedgerExtension(pi: ExtensionAPI): void {
 	pi.registerShortcut("alt+t", {
 		description: "Toggle Task Ledger overlay",
 		handler: async (ctx) => overlay.toggle(ctx),
+	});
+
+	pi.registerShortcut("alt+i", {
+		description: "Implement top ready Task Ledger task",
+		handler: async (ctx) => {
+			const id = overlay.firstReadyTaskId();
+			if (!id) {
+				ctx.ui.notify("No ready task available for Alt+i.", "info");
+				return;
+			}
+			const claim = await runTl(pi, ctx, ["claim", id]);
+			if (claim.exitCode !== 0) {
+				ctx.ui.notify(claim.stderr.trim() || claim.stdout.trim() || `Failed to claim ${id}.`, "error");
+				return;
+			}
+			pi.sendUserMessage(buildTaskWorkflowPrompt(id, "Start implementation"), ctx.isIdle() ? undefined : { deliverAs: "followUp" });
+			ctx.ui.notify(`Claimed ${id} and sent implement request to the agent.`, "info");
+			await overlay.refresh(ctx);
+		},
+	});
+
+	pi.registerShortcut("alt+r", {
+		description: "Refine top ready Task Ledger task",
+		handler: async (ctx) => {
+			const id = overlay.firstReadyTaskId();
+			if (!id) {
+				ctx.ui.notify("No ready task available for Alt+r.", "info");
+				return;
+			}
+			pi.sendUserMessage(buildTaskWorkflowPrompt(id, "Refine task"), ctx.isIdle() ? undefined : { deliverAs: "followUp" });
+			ctx.ui.notify(`Sent refine request for ${id} to the agent.`, "info");
+		},
 	});
 
 	registerTlTools(pi);

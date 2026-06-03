@@ -244,3 +244,7 @@
 {"time":"2026-06-03T17:57:31Z","event":"claimed","task_id":"task-1dz","actor":"pi-agent"}
 {"time":"2026-06-03T17:58:19Z","event":"note_added","task_id":"task-1dz","actor":"pi-agent"}
 {"time":"2026-06-03T17:58:19Z","event":"closed","task_id":"task-1dz","actor":"pi-agent"}
+{"time":"2026-06-03T18:00:33Z","event":"claimed","task_id":"task-dxd","actor":"pi-agent"}
+{"time":"2026-06-03T18:01:31Z","event":"created","task_id":"task-8ym","actor":"human"}
+{"time":"2026-06-03T18:03:33Z","event":"note_added","task_id":"task-dxd","actor":"pi-agent"}
+{"time":"2026-06-03T18:03:33Z","event":"closed","task_id":"task-dxd","actor":"pi-agent"}
