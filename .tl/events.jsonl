@@ -227,3 +227,4 @@
 {"time":"2026-06-03T17:22:15Z","event":"note_added","task_id":"task-zxq","actor":"pi-agent"}
 {"time":"2026-06-03T17:22:15Z","event":"closed","task_id":"task-zxq","actor":"pi-agent"}
 {"time":"2026-06-03T17:24:26Z","event":"closed","task_id":"task-olj","actor":"pi-agent"}
+{"time":"2026-06-03T17:24:45Z","event":"created","task_id":"task-b07","actor":"human"}
