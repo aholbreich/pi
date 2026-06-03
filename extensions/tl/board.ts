@@ -62,8 +62,8 @@ export async function openTaskLedgerBoard(pi: ExtensionAPI, ctx: ExtensionContex
 
 async function loadBoardSections(pi: ExtensionAPI, ctx: Pick<ExtensionContext, "cwd" | "signal">): Promise<BoardSection[]> {
 	const definitions: Array<Omit<BoardSection, "tasks">> = [
-		{ label: "Ready", icon: "○", args: ["ready", "--json"] },
 		{ label: "In progress", icon: "◐", args: ["list", "--status", "in_progress", "--json"] },
+		{ label: "Ready", icon: "○", args: ["ready", "--json"] },
 		{ label: "Blocked", icon: "▲", args: ["list", "--status", "blocked", "--json"] },
 		{ label: "Pending human", icon: "?", args: ["list", "--status", "pending_human", "--json"] },
 		{ label: "Stale claims", icon: "◇", args: ["stale", "--json"] },

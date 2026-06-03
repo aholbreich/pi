@@ -1,11 +1,11 @@
 ---
 id: task-b07
 title: Board shows stale task data after cancel/remove and re-open
-status: open
+status: done
 priority: high
 type: bug
 created_at: 2026-06-03T17:24:45Z
-updated_at: 2026-06-03T17:24:45Z
+updated_at: 2026-06-03T17:43:08Z
 created_by: human
 assignee: null
 depends_on: []
@@ -50,3 +50,7 @@ Possible causes:
 ## Potential fix
 
 Call \`loadBoardSections\` with a fresh signal, or verify that \`pi.exec\` is actually executing the commands on re-open rather than returning cached results.
+
+## Notes
+
+- 2026-06-03T17:43:08Z [pi-agent] note: Fix: created execCtx={cwd,signal:undefined} in openBoardAndHandleSelection before the loop. All runTl calls (lifecycle remove/cancel, and loadBoardSections on re-open) now use this clean signal context instead of ctx.signal which may be aborted after the first overlay closes. This prevents pi.exec from returning cached/stale data.
