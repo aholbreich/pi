@@ -1,19 +1,19 @@
 ---
 id: task-zxq
 title: Add semver version determination script and npm version hook
-status: in_progress
+status: done
 priority: medium
 type: task
 created_at: 2026-06-03T17:19:48Z
-updated_at: 2026-06-03T17:20:13Z
+updated_at: 2026-06-03T17:22:15Z
 created_by: human
 assignee: null
 depends_on: []
 claim:
-  actor: pi-agent
-  claimed_at: 2026-06-03T17:20:13Z
-  expires_at: 2026-06-03T18:20:13Z
-  heartbeat_at: 2026-06-03T17:20:13Z
+  actor: null
+  claimed_at: null
+  expires_at: null
+  heartbeat_at: null
 tags:
   - release
   - semver
@@ -37,3 +37,7 @@ Commits since v0.2.3:
   refactoring: tests
 Recommended bump: minor (1 feat, 1 fix)
 ```
+
+## Notes
+
+- 2026-06-03T17:22:15Z [pi-agent] note: Implemented: (1) scripts/determine-version.js — reads git log since last v* tag, parses conventional commits (feat:/fix:/BREAKING CHANGE:), recommends bump type. No dependencies. (2) package.json release:dry script alias. (3) package.json version lifecycle hook — validates clean tree on main branch before allowing npm version. Tested: correctly recommends minor bump for current commits, blocks on dirty tree.

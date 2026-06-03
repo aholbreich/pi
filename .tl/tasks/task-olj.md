@@ -1,11 +1,11 @@
 ---
 id: task-olj
 title: Document semver release workflow as tl task template
-status: open
+status: done
 priority: medium
 type: task
 created_at: 2026-06-03T17:19:48Z
-updated_at: 2026-06-03T17:19:48Z
+updated_at: 2026-06-03T17:24:26Z
 created_by: human
 assignee: null
 depends_on: []
