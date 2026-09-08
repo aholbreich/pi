@@ -84,3 +84,23 @@ Feature: Task Ledger board navigation
     And the user selects that task and opens its details
     When the user requests to remove that task
     Then the task "task-remove" is removed with a reason
+
+  Scenario: Long task details are clipped with a scroll indicator
+    Given the task ledger board is open with a task "task-details" and long details
+    When the user opens the details of task "task-details"
+    Then the board shows the beginning of the details
+    And the board does not show the end of the details
+    And the board shows a scroll indicator
+
+  Scenario: Scrolling reveals more of long task details
+    Given the task ledger board is open with a task "task-details" and long details
+    When the user opens the details of task "task-details"
+    And the user scrolls the details down
+    Then the board shows more of the details
+    And the scroll indicator updates
+
+  Scenario: Short task details need no scrolling
+    Given the task ledger board is open with a task "task-short"
+    When the user opens the details of task "task-short"
+    Then the board shows "task-short full details"
+    And the board shows no scroll indicator

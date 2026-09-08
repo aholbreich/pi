@@ -5,6 +5,7 @@ import { renderTaskLine, tasksFromJson, type TaskSummary, type TaskVisualColor }
 
 const BOARD_MAX_VISIBLE_TASKS = 8;
 const BOARD_OVERLAY_WIDTH = 80;
+const DETAILS_VISIBLE_LINES = 18;
 
 type BoardAction = "implement" | "refine" | "review" | "plan" | "cancel" | "remove";
 type BoardMode = "list" | "details";
@@ -131,6 +132,7 @@ export class TaskLedgerBoardComponent {
 	private readonly sections: BoardSection[];
 	private selectedTaskIndex = 0;
 	private scrollOffset = 0;
+	private detailsScrollOffset = 0;
 	private mode: BoardMode = "list";
 	private viewMode: BoardViewMode = "focused";
 	private detailsTaskId: string | undefined;
@@ -219,6 +221,14 @@ export class TaskLedgerBoardComponent {
 			if (selected) this.done({ action: "remove", id: selected.id });
 			return;
 		}
+		if (this.mode === "details" && (isArrowUp(data) || data === "k")) {
+			this.scrollDetails(-1);
+			return;
+		}
+		if (this.mode === "details" && (isArrowDown(data) || data === "j")) {
+			this.scrollDetails(1);
+			return;
+		}
 		if (this.mode === "list" && data === "a") {
 			this.toggleViewMode();
 			return;
@@ -254,6 +264,7 @@ export class TaskLedgerBoardComponent {
 		const selected = this.selectedEntry();
 		if (!selected) return;
 		this.mode = "details";
+		this.detailsScrollOffset = 0;
 		this.detailsTaskId = selected.id;
 		this.detailsLoading = true;
 		this.detailsText = "Loading task details…";
@@ -273,6 +284,7 @@ export class TaskLedgerBoardComponent {
 
 	private backToList(): void {
 		this.mode = "list";
+		this.detailsScrollOffset = 0;
 		this.detailsTaskId = undefined;
 		this.detailsText = undefined;
 		this.detailsLoading = false;
@@ -318,6 +330,10 @@ export class TaskLedgerBoardComponent {
 		return lines;
 	}
 
+	private detailLines(): string[] {
+		return (this.detailsText ?? "").split(/\r?\n/);
+	}
+
 	private renderDetails(width: number): string[] {
 		const selected = this.selectedEntry();
 		const header = "Task details";
@@ -334,8 +350,18 @@ export class TaskLedgerBoardComponent {
 		} else {
 			lines.push(this.panelLine(width, header, "accent", true));
 		}
-		const detailLines = (this.detailsText ?? "").split(/\r?\n/).slice(0, 18);
-		for (const line of detailLines) lines.push(this.panelLine(width, this.detailsLoading ? line : line, this.detailsLoading ? "warning" : "text"));
+
+		const allLines = this.detailLines();
+		const total = allLines.length;
+		const offset = Math.min(this.detailsScrollOffset, Math.max(0, total - DETAILS_VISIBLE_LINES));
+		const visible = allLines.slice(offset, offset + DETAILS_VISIBLE_LINES);
+		for (const line of visible) lines.push(this.panelLine(width, line, this.detailsLoading ? "warning" : "text"));
+
+		if (total > DETAILS_VISIBLE_LINES) {
+			const start = offset + 1;
+			const end = offset + visible.length;
+			lines.push(this.panelLine(width, `Showing ${start}-${end} of ${total} lines`, "dim"));
+		}
 		return lines;
 	}
 
@@ -359,6 +385,12 @@ export class TaskLedgerBoardComponent {
 		if (this.selectedTaskIndex >= this.scrollOffset + BOARD_MAX_VISIBLE_TASKS) {
 			this.scrollOffset = this.selectedTaskIndex - BOARD_MAX_VISIBLE_TASKS + 1;
 		}
+	}
+
+	private scrollDetails(delta: number): void {
+		const maxOffset = Math.max(0, this.detailLines().length - DETAILS_VISIBLE_LINES);
+		this.detailsScrollOffset = Math.max(0, Math.min(maxOffset, this.detailsScrollOffset + delta));
+		this.tui.requestRender();
 	}
 
 	private colorForSection(section: string): PanelColor {

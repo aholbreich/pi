@@ -212,6 +212,18 @@ Given("the task ledger board is open with a task {string}", async function (this
   await openBoard(this);
 });
 
+Given("the task ledger board is open with a task {string} and long details", async function (this: BoardWorld, taskId: string) {
+  registerInto(this, async (_cmd: string, args: string[]) => {
+    if (args.includes("ready") || args.includes("--all")) return { code: 0, stdout: taskJson(taskId), stderr: "" };
+    if (args.includes("show")) {
+      const details = Array.from({ length: 40 }, (_, i) => `DETAIL-LINE-${i + 1}`).join("\n");
+      return { code: 0, stdout: details, stderr: "" };
+    }
+    return { code: 0, stdout: "[]", stderr: "" };
+  });
+  await openBoard(this);
+});
+
 Given("the task ledger board is showing task details", async function (this: BoardWorld) {
   registerInto(this, async (_cmd: string, args: string[]) => {
     if (args.includes("ready") || args.includes("--all")) return { code: 0, stdout: taskJson("task-ready"), stderr: "" };
@@ -288,6 +300,41 @@ Then("the board returns to the list view", function (this: BoardWorld) {
   assert.ok(this.component);
   const lines = this.component.render(100).join("\n");
   assert.match(lines, /↑.*↓.*nav/);
+});
+
+When("the user scrolls the details down", function (this: BoardWorld) {
+  assert.ok(this.component);
+  this.component.handleInput("j");
+});
+
+Then("the board shows the beginning of the details", function (this: BoardWorld) {
+  assert.ok(this.component);
+  assert.ok(this.component.render(100).join("\n").includes("DETAIL-LINE-1"));
+});
+
+Then("the board does not show the end of the details", function (this: BoardWorld) {
+  assert.ok(this.component);
+  assert.ok(!this.component.render(100).join("\n").includes("DETAIL-LINE-40"));
+});
+
+Then("the board shows a scroll indicator", function (this: BoardWorld) {
+  assert.ok(this.component);
+  assert.match(this.component.render(100).join("\n"), /Showing 1-18 of 40 lines/);
+});
+
+Then("the board shows more of the details", function (this: BoardWorld) {
+  assert.ok(this.component);
+  assert.ok(this.component.render(100).join("\n").includes("DETAIL-LINE-19"));
+});
+
+Then("the scroll indicator updates", function (this: BoardWorld) {
+  assert.ok(this.component);
+  assert.match(this.component.render(100).join("\n"), /Showing 2-19 of 40 lines/);
+});
+
+Then("the board shows no scroll indicator", function (this: BoardWorld) {
+  assert.ok(this.component);
+  assert.doesNotMatch(this.component.render(100).join("\n"), /Showing \d+-\d+ of \d+ lines/);
 });
 
 Then("the task ledger board overlay is visible", function (this: BoardWorld) {

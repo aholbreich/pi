@@ -209,6 +209,75 @@ test("details mode help line shows back and lifecycle hints", async () => {
 });
 
 // ---------------------------------------------------------------------------
+// Details mode scrolling
+// ---------------------------------------------------------------------------
+
+function longDetails(lineCount = 40) {
+	return Array.from({ length: lineCount }, (_, i) => `DETAIL-LINE-${i + 1}`).join("\n");
+}
+
+test("long details are clipped with a position indicator", async () => {
+	const c = createComponent({ sections: [section("Ready", "○", ["t1"])], loadDetails: async () => longDetails() });
+	c.handleInput("\r");
+	await setImmediate();
+	const lines = renderLines(c);
+	assert.match(lines, /DETAIL-LINE-1/);
+	assert.doesNotMatch(lines, /DETAIL-LINE-40/);
+	assert.match(lines, /Showing 1-18 of 40 lines/);
+});
+
+test("\"j\" scrolls long details down", async () => {
+	const c = createComponent({ sections: [section("Ready", "○", ["t1"])], loadDetails: async () => longDetails() });
+	c.handleInput("\r");
+	await setImmediate();
+	c.handleInput("j");
+	const lines = renderLines(c);
+	assert.match(lines, /DETAIL-LINE-19/);
+	assert.match(lines, /Showing 2-19 of 40 lines/);
+});
+
+test("arrow down scrolls long details down", async () => {
+	const c = createComponent({ sections: [section("Ready", "○", ["t1"])], loadDetails: async () => longDetails() });
+	c.handleInput("\r");
+	await setImmediate();
+	c.handleInput("\x1b[B");
+	const lines = renderLines(c);
+	assert.match(lines, /DETAIL-LINE-19/);
+	assert.match(lines, /Showing 2-19 of 40 lines/);
+});
+
+test("\"k\" and arrow up scroll back toward the top", async () => {
+	const c = createComponent({ sections: [section("Ready", "○", ["t1"])], loadDetails: async () => longDetails() });
+	c.handleInput("\r");
+	await setImmediate();
+	c.handleInput("j");
+	c.handleInput("j");
+	c.handleInput("k");
+	assert.match(renderLines(c), /Showing 2-19 of 40 lines/);
+	c.handleInput("\x1b[A");
+	assert.match(renderLines(c), /Showing 1-18 of 40 lines/);
+});
+
+test("details scroll clamps at the last line", async () => {
+	const c = createComponent({ sections: [section("Ready", "○", ["t1"])], loadDetails: async () => longDetails() });
+	c.handleInput("\r");
+	await setImmediate();
+	for (let i = 0; i < 100; i++) c.handleInput("j");
+	const lines = renderLines(c);
+	assert.match(lines, /DETAIL-LINE-40/);
+	assert.match(lines, /Showing 23-40 of 40 lines/);
+});
+
+test("short details show no scroll indicator", async () => {
+	const c = createComponent({ sections: [section("Ready", "○", ["t1"])], loadDetails: async () => "short details" });
+	c.handleInput("\r");
+	await setImmediate();
+	const lines = renderLines(c);
+	assert.match(lines, /short details/);
+	assert.doesNotMatch(lines, /Showing \d+-\d+ of \d+ lines/);
+});
+
+// ---------------------------------------------------------------------------
 // Escape — back to list / close
 // ---------------------------------------------------------------------------
 
