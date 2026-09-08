@@ -1,3 +1,4 @@
+@title-wrap
 Feature: Task title wrapping in board overlay
 
   As a user viewing the task ledger board,
