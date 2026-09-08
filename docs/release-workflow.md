@@ -24,7 +24,9 @@ git push --follow-tags
 | Generate notes | Markdown release notes grouped by conventional-commit type | `scripts/release-notes.js` (`npm run release-notes`) |
 | Validate | Blocks if not on `main` or tree is dirty | `package.json` `scripts.preversion` hook (`scripts/pre-version.js`) |
 | Bump + tag | `npm version` updates `package.json` version + creates `vX.Y.Z` git tag | Built-in |
-| Publish | Push of `v*` tag triggers CI → `npm publish` | `.github/workflows/publish.yml` |
+| Publish | Push of `v*.*.*` tag triggers CI → `npm publish` with provenance | `.github/workflows/publish.yml` |
+
+Before publishing, CI checks that the tag matches `package.json`, installs locked dependencies with `npm ci`, runs TypeScript checks plus the full unit/BDD suite, and inspects the package with `npm pack --dry-run`.
 
 ## Commit conventions
 

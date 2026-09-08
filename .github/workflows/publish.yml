@@ -24,7 +24,7 @@ jobs:
           node -e "const v=require('./package.json').version; const tag=process.env.GITHUB_REF_NAME; if (tag !== 'v' + v) { console.error('Tag ' + tag + ' does not match package version ' + v + '. Expected v' + v + '.'); process.exit(1); }"
       - run: npm ci
       - run: npm run check
-      - run: npm test
+      - run: npm run test:all
       - run: npm pack --dry-run
       - name: Publish to npm
         run: npm publish --access public --provenance

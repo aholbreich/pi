@@ -11,7 +11,7 @@ This package shells out to the local `tl` binary. It does not bundle or install 
 ## Requirements
 
 - [Pi](https://pi.dev) installed and configured with a model/provider
-- `tl` installed separately and available on `PATH` — see [tl installation options](https://github.com/aholbreich/tl#installation-options)
+- `tl` 0.9.0 or newer installed separately and available on `PATH` — see [tl installation options](https://github.com/aholbreich/tl#installation-options)
 - Start Pi in the repository root containing `.tl/`; the extension does not search parent directories for a ledger
 
 ## Installation
@@ -40,6 +40,8 @@ pi
 ```
 
 Alternatively, start Pi in the repository root and use `/tl-init` to initialize after confirmation. Restart Pi or run `/reload` if you installed the extension during an existing session. Accept Pi's project trust prompt for project-local packages only in repositories you trust.
+
+`/tl-init` checks the CLI even when a ledger already exists. Versions below 0.9.0 receive an upgrade warning; unknown versions receive a compatibility warning. Neither warning blocks initialization, which still requires confirmation. A genuine prerelease such as `0.9.0-rc.1` is below the stable minimum. The CLI's Git build suffix (`0.9.0-0-db9cd9b`, meaning tag, commit count, and hash) is checked against its base release; build metadata does not affect compatibility. If the CLI cannot run, the command provides installation guidance rather than installing software automatically.
 
 Use `/tl-capture` to collect your first tasks, then `/tl-board` to browse them. An empty ledger has no task summary to display.
 
@@ -82,15 +84,18 @@ The board and summary overlay are interactive-terminal features. Agent tools kee
 
 ### Summary overlay
 
-A compact Task Ledger summary appears above the editor when `.tl/` exists and there is ready, in-progress, blocked, pending, or stale work. The footer shows the installed `tl` version and colored counts, for example `tl 0.9.0: ○3 ▲1` (three ready, one blocked).
+A compact Task Ledger summary appears above the editor when the `tl` CLI is compatible, `.tl/` exists, and there is ready, in-progress, blocked, pending, or stale work. The footer shows the installed `tl` version and colored counts, for example `tl 0.9.0: ○3 ▲1` (three ready, one blocked).
+
+If the CLI cannot run, the footer shows red `tl: not found`; an incompatible or unrecognized version produces a yellow `incompatible` warning instead of a task summary. A compatible CLI without `.tl/` shows dim `no ledger`. CLI detection is cached for the session: use `/reload` after installing or upgrading `tl`.
 
 The summary refreshes from `tl` JSON output on session start/reload, after every agent turn (including CLI calls and `tl_bulk_create`), after compaction/tree navigation, and after successful initialization or board cancel/remove actions. It does not watch external ledger edits continuously; hide and show it to refresh while idle.
 
 - `Alt+T` - hide/show the summary during the current session; showing it refreshes the snapshot
 - `Alt+I` - claim the first Ready task in the cached summary, then ask the agent to implement it
 - `Alt+R` - ask the agent to refine that first Ready task without claiming it
+- `Alt+P` - ask the agent to plan that first Ready task without claiming it
 
-The quick actions notify you if no Ready task is cached. They target the first Ready task, not the board selection.
+The dim `↳ Alt: i implement · r refine · p plan` legend is nested beneath the Ready task these shortcuts target. The quick actions notify you if no Ready task is cached. They target the first Ready task, not the board selection or an earlier Pending/Active task.
 
 ### Board controls
 
@@ -118,6 +123,8 @@ overlay remains a compact actionable summary, not the full board inventory.
 The board normally opens in **Focused** view (excluding Done/Cancelled), but
 opens in **All** when there is at most one focused task and additional closed tasks.
 
+The board summary counts all sections, including zero counts and Done/Cancelled, independently of the Focused/All list toggle. When space is limited, middle sections are elided to keep the closed-task counts visible where they fit. Task details wrap to the view width and can be scrolled with `↑`/`↓` or `k`/`j`.
+
 ## Development
 
 Run these from the extension checkout with Node.js and npm installed:
@@ -131,8 +138,6 @@ npm run test:bdd    # Cucumber features
 ```
 
 Behavior specifications live in `features/`; follow the [Gherkin guidelines](docs/gherkin-guidelines.md) when changing behavior.
-
-Known test gap: the full BDD suite currently reports five undefined scenarios in `features/task-title-wrap.feature` (tracked as `task-gbi`); the implemented board workflows pass.
 
 Generate Markdown release notes from commits since the last tag:
 
