@@ -14,6 +14,48 @@ Feature: Task Ledger board navigation
     And the board displays the task "task-active" under section "In progress"
     And the board displays the task "task-stale" under section "Stale claims"
 
+  Scenario: Dependency-waiting tasks remain visible in the focused board
+    Given a task ledger repository has the following tasks:
+      | id             | title            | status  | priority | depends-on |
+      | task-fetch     | Fetch feeds      | open    | high     |            |
+      | task-subscribe | Add sources      | open    | high     | task-fetch |
+      | task-finished  | Set up storage   | done    | medium   |            |
+    When the task ledger board overlay is opened
+    Then the board displays the task "task-subscribe" under section "Waiting"
+    And the board does not display the task "task-finished"
+
+  Scenario: All view includes every task including tasks waiting on dependencies
+    Given a task ledger repository has the following tasks:
+      | id             | title            | status    | priority | depends-on |
+      | task-fetch     | Fetch feeds      | open      | high     |            |
+      | task-subscribe | Add sources      | open      | high     | task-fetch |
+      | task-finished  | Set up storage   | done      | medium   |            |
+      | task-cancelled | Old import plan  | cancelled | low      |            |
+    And the task ledger board overlay is opened
+    When the user presses the "a" key
+    Then the board displays the task "task-fetch" under section "Ready"
+    And the board displays the task "task-subscribe" under section "Waiting"
+    And the board displays the task "task-finished" under section "Done"
+    And the board displays the task "task-cancelled" under section "Cancelled"
+
+  Scenario: A ledger without ready tasks still shows waiting work
+    Given a task ledger repository has the following tasks:
+      | id             | title       | status  | priority | depends-on     |
+      | task-subscribe | Add sources | open    | high     | task-discovery |
+      | task-discovery | Find feeds  | blocked | high     |                |
+    When the task ledger board overlay is opened
+    Then the board displays the task "task-subscribe" under section "Waiting"
+    And the board displays the task "task-discovery" under section "Blocked"
+
+  Scenario: Readers can inspect the prerequisites of a waiting task
+    Given a task ledger repository has the following tasks:
+      | id             | title       | status | priority | depends-on |
+      | task-fetch     | Fetch feeds | open   | high     |            |
+      | task-subscribe | Add sources | open   | high     | task-fetch |
+    And the task ledger board overlay is opened
+    When the user opens the details of task "task-subscribe"
+    Then the board shows "Depends On: task-fetch"
+
   Scenario: Open the board via the Alt+L keyboard shortcut
     Given a task ledger repository is active
     When the user presses the "Alt+L" shortcut

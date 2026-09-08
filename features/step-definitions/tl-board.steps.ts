@@ -74,6 +74,7 @@ function taskJson(id: string) {
 function sectionIcon(section: string): string {
   const icons: Record<string, string> = {
     "Ready": "○",
+    "Waiting": "◌",
     "In progress": "◐",
     "Blocked": "▲",
     "Pending human": "\\?",
@@ -172,50 +173,39 @@ async function openBoard(world: BoardWorld) {
 
 Given("a task ledger repository is active", function (this: BoardWorld) {
   registerInto(this, async (_cmd: string, args: string[]) => {
-    if (args.includes("ready")) return { code: 0, stdout: JSON.stringify([{ id: "task-shortcut", title: "A shortcut task", status: "open", priority: "medium", tags: [] }]), stderr: "" };
+    if (args.includes("ready") || args.includes("--all")) return { code: 0, stdout: JSON.stringify([{ id: "task-shortcut", title: "A shortcut task", status: "open", priority: "medium", tags: [] }]), stderr: "" };
     return { code: 0, stdout: "[]", stderr: "" };
   });
 });
 
 Given("a task ledger repository has the following tasks:", function (this: BoardWorld, dataTable: { raw(): string[][] }) {
-  const rows = dataTable.raw();
-  // header: id, title, status, priority
-  const ready: unknown[] = [];
-  const inProgress: unknown[] = [];
-  const blocked: unknown[] = [];
-  const pending: unknown[] = [];
-  const stale: unknown[] = [];
-
-  for (let i = 1; i < rows.length; i++) {
-    const [id, title, status] = rows[i];
-    const entry = { id, title, status, priority: rows[i][3] ?? "medium", tags: ["test"] };
-    if (status === "open") ready.push(entry);
-    else if (status === "in_progress") inProgress.push(entry);
-    else if (status === "blocked") blocked.push(entry);
-    else if (status === "pending_human") pending.push(entry);
-    else if (status === "stale") stale.push(entry);
-  }
-
-  // Tasks marked "open" with stale claims — check "stale claims" section
-  // by org: tasks in "stale" column go to Stale claims, "open" go to Ready
-  // We use the task's status field directly from the data table.
+  const tasks = dataTable.raw().slice(1).map(([id, title, status, priority, dependencies]) => ({
+    id, title, status: status === "stale" ? "in_progress" : status,
+    priority: priority || "medium", tags: ["test"],
+    depends_on: dependencies ? dependencies.split(",").map((id) => id.trim()) : [],
+    stale: status === "stale",
+  }));
+  const ready = tasks.filter((task) => task.status === "open" && task.depends_on.every((id) =>
+    tasks.some((dependency) => dependency.id === id && ["done", "cancelled"].includes(dependency.status)),
+  ));
 
   registerInto(this, async (_cmd: string, args: string[]) => {
-    if (args.includes("ready")) return { code: 0, stdout: JSON.stringify(ready), stderr: "" };
-    if (args.includes("in_progress")) return { code: 0, stdout: JSON.stringify(inProgress), stderr: "" };
-    if (args.includes("blocked")) return { code: 0, stdout: JSON.stringify(blocked), stderr: "" };
-    if (args.includes("pending_human")) return { code: 0, stdout: JSON.stringify(pending), stderr: "" };
-    if (args.includes("stale")) return { code: 0, stdout: JSON.stringify(stale), stderr: "" };
-    if (args.includes("done")) return { code: 0, stdout: JSON.stringify([]), stderr: "" };
-    if (args.includes("cancelled")) return { code: 0, stdout: JSON.stringify([]), stderr: "" };
-    if (args.includes("show")) return { code: 0, stdout: `${args[args.length - 1]} full details`, stderr: "" };
-    throw new Error(`unexpected exec: ${args.join(" ")}`);
+    let result;
+    if (args.includes("--all")) result = tasks;
+    else if (args.includes("ready")) result = ready;
+    else if (args.includes("stale")) result = tasks.filter((task) => task.stale);
+    else if (args.includes("--status")) result = tasks.filter((task) => task.status === args[args.indexOf("--status") + 1]);
+    else if (args.includes("show")) {
+      const task = tasks.find((task) => task.id === args[args.length - 1])!;
+      return { code: 0, stdout: `${task.id}\nDepends On: ${task.depends_on.join(", ")}`, stderr: "" };
+    } else throw new Error(`unexpected exec: ${args.join(" ")}`);
+    return { code: 0, stdout: JSON.stringify(result), stderr: "" };
   });
 });
 
 Given("the task ledger board is open with a task {string}", async function (this: BoardWorld, taskId: string) {
   registerInto(this, async (_cmd: string, args: string[]) => {
-    if (args.includes("ready")) return { code: 0, stdout: taskJson(taskId), stderr: "" };
+    if (args.includes("ready") || args.includes("--all")) return { code: 0, stdout: taskJson(taskId), stderr: "" };
     if (args.includes("show")) return { code: 0, stdout: `${taskId} full details`, stderr: "" };
     return { code: 0, stdout: "[]", stderr: "" };
   });
@@ -224,7 +214,7 @@ Given("the task ledger board is open with a task {string}", async function (this
 
 Given("the task ledger board is showing task details", async function (this: BoardWorld) {
   registerInto(this, async (_cmd: string, args: string[]) => {
-    if (args.includes("ready")) return { code: 0, stdout: taskJson("task-ready"), stderr: "" };
+    if (args.includes("ready") || args.includes("--all")) return { code: 0, stdout: taskJson("task-ready"), stderr: "" };
     if (args.includes("show")) return { code: 0, stdout: "task-ready full details", stderr: "" };
     return { code: 0, stdout: "[]", stderr: "" };
   });
@@ -270,10 +260,34 @@ Then("the board displays the task {string} under section {string}", function (th
   assert.doesNotMatch(line, new RegExp(`${section}:`));
 });
 
+Then("the board does not display the task {string}", function (this: BoardWorld, taskId: string) {
+  assert.ok(this.component);
+  assert.ok(!this.component.render(100).join("\n").includes(taskId));
+});
+
+When("the user opens the details of task {string}", async function (this: BoardWorld, taskId: string) {
+  assert.ok(this.component);
+  for (let i = 0; i < 50; i++) {
+    const selected = this.component.render(100).find((line) => line.includes("▸"));
+    if (selected?.includes(taskId)) {
+      this.component.handleInput("d");
+      await new Promise((resolve) => setImmediate(resolve));
+      return;
+    }
+    this.component.handleInput("j");
+  }
+  assert.fail(`Task ${taskId} is not reachable`);
+});
+
+Then("the board shows {string}", function (this: BoardWorld, text: string) {
+  assert.ok(this.component);
+  assert.ok(this.component.render(100).join("\n").includes(text));
+});
+
 Then("the board returns to the list view", function (this: BoardWorld) {
   assert.ok(this.component);
   const lines = this.component.render(100).join("\n");
-  assert.match(lines, /↑.*↓.*navigate/);
+  assert.match(lines, /↑.*↓.*nav/);
 });
 
 Then("the task ledger board overlay is visible", function (this: BoardWorld) {

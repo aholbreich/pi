@@ -55,8 +55,18 @@ A live Task Ledger overlay is shown above the editor when the current repository
 Human-facing commands focus on the overlay workflow. Agent tools keep color disabled for clean JSON/model output.
 
 - `/tl-capture` - open an editor for rough todos, then ask the agent to refine and create clean tasks
-- `/tl-board` or `Alt+L` - open a keyboard-navigable modal board for ready, in-progress, blocked, pending, and stale tasks; use arrows/j/k to move, enter/d for in-modal details, b/esc to return, i/r/v/p for implement/refine/review/plan, `c` to cancel with a reason, `x` to remove with a reason, and `a` to toggle between focused (active) and all (including done/cancelled) views
+- `/tl-board` or `Alt+L` - open a keyboard-navigable modal board for ready, waiting, in-progress, blocked, pending, and stale tasks; use arrows/j/k to move, enter/d for in-modal details, b/esc to return, i/r/v/p for implement/refine/review/plan, `c` to cancel with a reason, `x` to remove with a reason, and `a` to toggle between focused (active) and all (including done/cancelled) views
 - `/tl-init` - initialize task ledger after confirmation
+
+The board's **Waiting** (`◌`) section keeps open tasks that are not ready
+(including tasks waiting on prerequisites) visible in both views. This is
+separate from explicitly **Blocked** tasks. Open a task's details with `enter`
+or `d` to inspect its **Depends On** information.
+
+**All** uses the complete `tl list --all --json` inventory, including
+Done/Cancelled and any unrecognized statuses under **Other**. Each task appears
+once; stale claims take precedence over other non-closed sections. The passive
+overlay remains a compact actionable summary, not the full board inventory.
 
 ## Development
 

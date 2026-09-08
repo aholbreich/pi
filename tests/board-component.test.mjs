@@ -292,7 +292,7 @@ test("\"b\" in list mode has no effect", () => {
 test("\"a\" toggles from focused to all-mode", () => {
 	const c = createComponent({
 		sections: [
-			section("Ready", "○", ["t1"]),
+			section("Ready", "○", ["t1", "t3"]),
 			section("Done", "✓", ["t2"]),
 		],
 	});
@@ -304,7 +304,7 @@ test("\"a\" toggles from focused to all-mode", () => {
 test("\"a\" toggles back from all-mode to focused", () => {
 	const c = createComponent({
 		sections: [
-			section("Ready", "○", ["t1"]),
+			section("Ready", "○", ["t1", "t3"]),
 			section("Done", "✓", ["t2"]),
 		],
 	});
@@ -427,11 +427,12 @@ test("\"c\" and \"x\" have no effect in list mode", () => {
 // All-mode shows Done/Cancelled sections
 // ---------------------------------------------------------------------------
 
-test("all-mode shows sections beyond the first 5", () => {
-	// Focused mode slices [0:5], so sections 6+ only appear in all-mode
+test("focused view includes waiting and stale sections but excludes closed tasks", () => {
+	// Filtering is by section meaning, not a fixed number of sections.
 	const c = createComponent({
 		sections: [
 			section("Ready", "○", ["t1"]),
+			section("Waiting", "◌", ["t8"]),
 			section("In progress", "◐", ["t2"]),
 			section("Blocked", "▲", ["t3"]),
 			section("Pending human", "?", ["t4"]),
@@ -440,7 +441,8 @@ test("all-mode shows sections beyond the first 5", () => {
 			section("Cancelled", "✗", ["t7"]),
 		],
 	});
-	// Focused mode: only first 5 sections visible
+	assert.match(renderLines(c), /◌.*t8/);
+	assert.match(renderLines(c), /◇.*t5/);
 	assert.doesNotMatch(renderLines(c), /✓.*t6/);
 	assert.doesNotMatch(renderLines(c), /✗.*t7/);
 	// Toggle to all-mode

@@ -26,7 +26,6 @@ type BoardEntry = {
 type BoardSection = {
 	label: string;
 	icon: string;
-	args: string[];
 	tasks: TaskSummary[];
 };
 
@@ -35,10 +34,16 @@ type BoardTui = { requestRender(): void };
 type PanelColor = TaskVisualColor;
 
 export async function openTaskLedgerBoard(pi: ExtensionAPI, ctx: ExtensionContext, execCtx?: Pick<ExtensionContext, "cwd" | "signal">): Promise<BoardSelection | undefined> {
-	const sections = await loadBoardSections(pi, execCtx ?? ctx);
+	let sections: BoardSection[];
+	try {
+		sections = await loadBoardSections(pi, execCtx ?? ctx);
+	} catch (error) {
+		ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
+		return undefined;
+	}
 	const entries = sections.flatMap((section) => section.tasks.map((task) => taskEntry(section, task))).filter((entry): entry is BoardEntry => entry !== undefined);
 	if (entries.length === 0) {
-		ctx.ui.notify("No ready, in-progress, blocked, pending, or stale task ledger tasks found.", "info");
+		ctx.ui.notify("No task ledger tasks found.", "info");
 		return undefined;
 	}
 
@@ -61,22 +66,57 @@ export async function openTaskLedgerBoard(pi: ExtensionAPI, ctx: ExtensionContex
 }
 
 async function loadBoardSections(pi: ExtensionAPI, ctx: Pick<ExtensionContext, "cwd" | "signal">): Promise<BoardSection[]> {
-	const definitions: Array<Omit<BoardSection, "tasks">> = [
-		{ label: "In progress", icon: "◐", args: ["list", "--status", "in_progress", "--json"] },
-		{ label: "Ready", icon: "○", args: ["ready", "--json"] },
-		{ label: "Blocked", icon: "▲", args: ["list", "--status", "blocked", "--json"] },
-		{ label: "Pending human", icon: "?", args: ["list", "--status", "pending_human", "--json"] },
-		{ label: "Stale claims", icon: "◇", args: ["stale", "--json"] },
-		{ label: "Done", icon: "✓", args: ["list", "--status", "done", "--json"] },
-		{ label: "Cancelled", icon: "✗", args: ["list", "--status", "cancelled", "--json"] },
+	const listTasks = async (args: string[]): Promise<TaskSummary[]> => {
+		const run = await runTl(pi, ctx, args, { parseJson: true });
+		if (run.exitCode !== 0) {
+			throw new Error(run.stderr.trim() || `tl ${args.join(" ")} failed (${run.exitCode})`);
+		}
+		if (run.jsonParseError || (run.json !== null && !Array.isArray(run.json))) {
+			throw new Error(`tl ${args.join(" ")} returned invalid task JSON`);
+		}
+		return tasksFromJson(run.json);
+	};
+	// The inventory is authoritative: ready/stale are overlapping derived views,
+	// not an exhaustive partition of task statuses. In particular, an open task
+	// waiting on prerequisites is neither ready nor explicitly blocked.
+	const [inventory, ready, stale] = await Promise.all([
+		listTasks(["list", "--all", "--json"]),
+		listTasks(["ready", "--json"]),
+		listTasks(["stale", "--json"]),
+	]);
+	const readyIds = new Set(ready.map((task) => task.id));
+	const staleIds = new Set(stale.map((task) => task.id));
+	const sections: BoardSection[] = [
+		{ label: "In progress", icon: "◐", tasks: [] },
+		{ label: "Ready", icon: "○", tasks: [] },
+		{ label: "Waiting", icon: "◌", tasks: [] },
+		{ label: "Blocked", icon: "▲", tasks: [] },
+		{ label: "Pending human", icon: "?", tasks: [] },
+		{ label: "Stale claims", icon: "◇", tasks: [] },
+		{ label: "Other", icon: "·", tasks: [] },
+		{ label: "Done", icon: "✓", tasks: [] },
+		{ label: "Cancelled", icon: "✗", tasks: [] },
 	];
+	const statusSections = new Map<string, string>([
+		["in_progress", "In progress"], ["blocked", "Blocked"], ["pending_human", "Pending human"],
+		["done", "Done"], ["cancelled", "Cancelled"],
+	]);
+	const seen = new Set<string>();
+	for (const task of inventory) {
+		if (typeof task.id !== "string" || seen.has(task.id)) continue;
+		seen.add(task.id);
+		let label = typeof task.status === "string" ? statusSections.get(task.status) ?? "Other" : "Other";
+		if (label !== "Done" && label !== "Cancelled") {
+			if (staleIds.has(task.id)) label = "Stale claims";
+			else if (task.status === "open") label = readyIds.has(task.id) ? "Ready" : "Waiting";
+		}
+		sections.find((section) => section.label === label)!.tasks.push(task);
+	}
+	return sections;
+}
 
-	return Promise.all(
-		definitions.map(async (definition) => {
-			const run = await runTl(pi, ctx, definition.args, { parseJson: true });
-			return { ...definition, tasks: run.exitCode === 0 ? tasksFromJson(run.json) : [] };
-		}),
-	);
+function isFocusedSection(section: BoardSection): boolean {
+	return section.label !== "Done" && section.label !== "Cancelled";
 }
 
 function taskEntry(section: BoardSection, task: TaskSummary): BoardEntry | undefined {
@@ -106,7 +146,7 @@ export class TaskLedgerBoardComponent {
 	) {
 		this.sections = sections;
 		this.focusedEntries = sections
-			.slice(0, 5)
+			.filter(isFocusedSection)
 			.flatMap((section) =>
 				section.tasks.map((task) => taskEntry(section, task)).filter((e): e is BoardEntry => e !== undefined),
 			);
@@ -114,9 +154,9 @@ export class TaskLedgerBoardComponent {
 			section.tasks.map((task) => taskEntry(section, task)).filter((e): e is BoardEntry => e !== undefined),
 		);
 
-		// Auto-expand to all-mode when focused view has exactly one entry —
-		// a board with a single row feels empty and hides useful context.
-		if (this.focusedEntries.length === 1 && this.allEntries.length > 1) {
+		// Also open closed-only ledgers in all-mode, rather than an empty list.
+		// Preserve the existing single-active-task auto-expand behavior.
+		if (this.focusedEntries.length <= 1 && this.allEntries.length > this.focusedEntries.length) {
 			this.viewMode = "all";
 		}
 	}
@@ -325,13 +365,13 @@ export class TaskLedgerBoardComponent {
 		if (section === "Ready") return "accent";
 		if (section === "In progress") return "success";
 		if (section === "Blocked") return "error";
-		if (section === "Pending human" || section === "Stale claims") return "warning";
+		if (section === "Waiting" || section === "Pending human" || section === "Stale claims") return "warning";
 		if (section === "Done" || section === "Cancelled") return "dim";
 		return "muted";
 	}
 
 	private summaryLine(fullWidth: number): string {
-		const sections = (this.viewMode === "all" ? this.sections : this.sections.slice(0, 5))
+		const sections = (this.viewMode === "all" ? this.sections : this.sections.filter(isFocusedSection))
 			.map((section) => ({ ...section, count: section.tasks.filter((task) => typeof task.id === "string").length }))
 			.filter((section) => section.count > 0);
 		if (sections.length === 0) return this.panelLine(fullWidth, "No visible tasks", "dim");

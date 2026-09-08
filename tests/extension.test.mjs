@@ -316,7 +316,7 @@ test("tl-board opens keyboard navigable overlay and sends selected action", asyn
 	const { commands } = registerExtension({
 		exec: async (cmd, args) => {
 			calls.push({ cmd, args });
-			if (args.includes("ready")) return { code: 0, stdout: taskJson("task-board"), stderr: "" };
+			if (args.includes("ready") || args.includes("--all")) return { code: 0, stdout: taskJson("task-board"), stderr: "" };
 			return { code: 0, stdout: "[]", stderr: "" };
 		},
 		sendUserMessage: (message, options) => sentMessages.push({ message, options }),
@@ -339,7 +339,7 @@ test("tl-board opens keyboard navigable overlay and sends selected action", asyn
 
 	await commands.get("tl-board").handler("", ctx);
 
-	assert.equal(calls.length, 7);
+	assert.equal(calls.length, 3);
 	assert.match(rendered.join("\n"), /Task Ledger Board/);
 	assert.match(rendered.join("\n"), /○ task-board ▲ Example task/);
 	assert.doesNotMatch(rendered.join("\n"), /#ux/);
@@ -355,7 +355,7 @@ test("Task Ledger board shortcut opens modal", async () => {
 	const { shortcuts } = registerExtension({
 		exec: async (cmd, args) => {
 			calls.push({ cmd, args });
-			if (args.includes("ready")) return { code: 0, stdout: taskJson("task-shortcut"), stderr: "" };
+			if (args.includes("ready") || args.includes("--all")) return { code: 0, stdout: taskJson("task-shortcut"), stderr: "" };
 			return { code: 0, stdout: "[]", stderr: "" };
 		},
 	});
@@ -379,7 +379,7 @@ test("Task Ledger board shortcut opens modal", async () => {
 	await shortcuts.get("alt+l").handler(ctx);
 
 	assert.equal(opened, true);
-	assert.equal(calls.length, 7);
+	assert.equal(calls.length, 3);
 });
 
 test("tl-board remove lifecycle force-removes open tasks", async () => {
@@ -388,7 +388,7 @@ test("tl-board remove lifecycle force-removes open tasks", async () => {
 	const { commands } = registerExtension({
 		exec: async (cmd, args) => {
 			calls.push({ cmd, args });
-			if (args.includes("ready")) return { code: 0, stdout: removed ? "[]" : taskJson("task-remove"), stderr: "" };
+			if (args.includes("ready") || args.includes("--all")) return { code: 0, stdout: removed ? "[]" : taskJson("task-remove"), stderr: "" };
 			if (args.includes("remove")) {
 				removed = true;
 				return { code: 0, stdout: "Removed task-remove", stderr: "" };
@@ -420,7 +420,7 @@ test("tl-board shows task details inside the modal", async () => {
 	const { commands } = registerExtension({
 		exec: async (cmd, args) => {
 			calls.push({ cmd, args });
-			if (args.includes("ready")) return { code: 0, stdout: taskJson("task-detail"), stderr: "" };
+			if (args.includes("ready") || args.includes("--all")) return { code: 0, stdout: taskJson("task-detail"), stderr: "" };
 			if (args.includes("show")) return { code: 0, stdout: "task-detail full details", stderr: "" };
 			return { code: 0, stdout: "[]", stderr: "" };
 		},
@@ -444,7 +444,7 @@ test("tl-board shows task details inside the modal", async () => {
 
 	await commands.get("tl-board").handler("", ctx);
 
-	assert.equal(calls.length, 8);
+	assert.equal(calls.length, 4);
 	assert.deepEqual(calls.at(-1).args, ["--color", "never", "show", "task-detail"]);
 	assert.match(rendered.join("\n"), /task-detail full details/);
 	assert.match(rendered.join("\n"), /\[bg\]/);
