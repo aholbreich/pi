@@ -1,13 +1,12 @@
 import type { ExtensionAPI, ExtensionContext, ExtensionUIContext, Theme } from "@earendil-works/pi-coding-agent";
-import { runTl } from "./cli.js";
+import { getTlVersion, isTlAvailable, isTlVersionCompatible, runTl } from "./cli.js";
 import { hasLedger } from "./ledger.js";
 import { renderTaskLine, tasksFromJson, type RenderedLine, type TaskSummary } from "./tasks.js";
 
 const TL_OVERLAY_WIDGET_KEY = "pi-tl-overlay";
 const MAX_OVERLAY_LINES = 12;
 const MAX_TASKS_PER_SECTION = 3;
-const READY_ACTION_HINT = "[Alt+i]Impl [Alt+r]Ref";
-const READY_ACTION_HINT_SPACING = "  ";
+const READY_ACTION_LEGEND = "Alt: i implement · r refine · p plan";
 
 type TuiHandle = { requestRender(): void };
 type OverlayColor = "accent" | "success" | "warning" | "error" | "muted" | "dim";
@@ -37,6 +36,11 @@ const EMPTY_SNAPSHOT: OverlaySnapshot = {
 };
 const FALLBACK_VERSION_LABEL = "tl";
 
+type VersionState =
+	| { kind: "not-found" }
+	| { kind: "incompatible"; version: string | null }
+	| { kind: "compatible"; version: string };
+
 /**
  * Persistent Task Ledger summary shown above the editor.
  *
@@ -49,7 +53,7 @@ export class TaskLedgerOverlay {
 	private widgetRegistered = false;
 	private tui: TuiHandle | undefined;
 	private snapshot: OverlaySnapshot = EMPTY_SNAPSHOT;
-	private versionLabel: string | undefined;
+	private versionState: VersionState | undefined;
 	// Incrementing serial that cancels stale async refreshes.
 	// Each refresh() bumps this; the loadSnapshot callback checks it
 	// after the await so a newer refresh won't be overwritten.
@@ -80,11 +84,25 @@ export class TaskLedgerOverlay {
 		if (!ctx.hasUI) return;
 		this.setContext(ctx);
 
-		await this.ensureVersionLabel(ctx);
+		const state = await this.ensureVersionState(ctx);
+
+		if (state.kind === "not-found") {
+			this.snapshot = EMPTY_SNAPSHOT;
+			this.uiCtx?.setStatus("pi-tl", this.uiCtx.theme.fg("error", "tl: not found"));
+			this.hide();
+			return;
+		}
+
+		if (state.kind === "incompatible") {
+			this.snapshot = EMPTY_SNAPSHOT;
+			this.uiCtx?.setStatus("pi-tl", this.uiCtx.theme.fg("warning", `${this.stateLabel()}: incompatible`));
+			this.hide();
+			return;
+		}
 
 		if (!hasLedger(ctx)) {
 			this.snapshot = EMPTY_SNAPSHOT;
-			this.uiCtx?.setStatus("pi-tl", this.uiCtx.theme.fg("dim", `${this.versionLabel ?? FALLBACK_VERSION_LABEL}: no ledger`));
+			this.uiCtx?.setStatus("pi-tl", this.uiCtx.theme.fg("dim", `${this.stateLabel()}: no ledger`));
 			this.hide();
 			return;
 		}
@@ -129,14 +147,25 @@ export class TaskLedgerOverlay {
 		return typeof task?.id === "string" ? task.id : undefined;
 	}
 
-	private async ensureVersionLabel(ctx: Pick<ExtensionContext, "cwd" | "signal">): Promise<void> {
-		if (this.versionLabel !== undefined) return;
-		try {
-			const run = await runTl(this.pi, ctx, ["--version"], { timeoutMs: 5_000 });
-			this.versionLabel = run.exitCode === 0 ? formatVersionLabel(run.stdout) : FALLBACK_VERSION_LABEL;
-		} catch {
-			this.versionLabel = FALLBACK_VERSION_LABEL;
+	private async ensureVersionState(ctx: Pick<ExtensionContext, "cwd" | "signal">): Promise<VersionState> {
+		if (this.versionState) return this.versionState;
+		const available = await isTlAvailable(this.pi, ctx);
+		if (!available) {
+			this.versionState = { kind: "not-found" };
+			return this.versionState;
 		}
+		const version = await getTlVersion(this.pi, ctx);
+		const compatible = version !== null && isTlVersionCompatible(version);
+		this.versionState = compatible
+			? { kind: "compatible", version }
+			: { kind: "incompatible", version };
+		return this.versionState;
+	}
+
+	private stateLabel(): string {
+		const state = this.versionState;
+		if (!state || state.kind === "not-found") return FALLBACK_VERSION_LABEL;
+		return state.version ? `tl ${state.version}` : FALLBACK_VERSION_LABEL;
 	}
 
 	private async loadSnapshot(ctx: Pick<ExtensionContext, "cwd" | "signal">): Promise<OverlaySnapshot> {
@@ -163,7 +192,7 @@ export class TaskLedgerOverlay {
 
 	private updateStatus(): void {
 		if (!this.uiCtx) return;
-		const label = this.versionLabel ?? FALLBACK_VERSION_LABEL;
+		const label = this.stateLabel();
 		if (!this.hasVisibleContent()) {
 			this.uiCtx.setStatus("pi-tl", this.uiCtx.theme.fg("dim", `${label}: 0r`));
 			return;
@@ -179,7 +208,7 @@ export class TaskLedgerOverlay {
 		if (this.snapshot.blocked.length > 0) parts.push(this.uiCtx.theme.fg("error", `▲${this.snapshot.blocked.length}`));
 		if (this.snapshot.pendingHuman.length > 0) parts.push(this.uiCtx.theme.fg("warning", `?${this.snapshot.pendingHuman.length}`));
 		if (this.snapshot.stale.length > 0) parts.push(this.uiCtx.theme.fg("warning", `◇${this.snapshot.stale.length}`));
-		this.uiCtx.setStatus("pi-tl", `${this.uiCtx.theme.fg("dim", `${label}:`)} ${parts.join(" ")}`);
+		this.uiCtx.setStatus("pi-tl", `${this.uiCtx.theme.fg("success", `${label}:`)} ${parts.join(" ")}`);
 	}
 
 	private updateWidget(): void {
@@ -231,7 +260,8 @@ export class TaskLedgerOverlay {
 	 * Produces a header line with a section breakdown, then up to
 	 * MAX_OVERLAY_LINES of task rows per section (capped at
 	 * MAX_TASKS_PER_SECTION each), with overflow "N more …" indicators.
-	 * The final visible line uses └─ instead of ├─ for visual closure.
+	 * The final visible task/overflow branch uses └─ for visual closure;
+	 * the action legend is a subordinate line beneath its target task.
 	 *
 	 * @param theme  Pi theme for color styling
 	 * @param width  Available terminal width in characters
@@ -287,36 +317,45 @@ export function renderOverlayLines(
 	const summary = sections.map((section) => `${section.tasks.length} ${section.label.toLowerCase()}`).join(" · ");
 	const lines = [fitStyled(theme, width, "accent", "●", `Task Ledger  ${summary}`)];
 
-	let readyHintShown = false;
+	let readyLegendShown = false;
+	let legendIndex: number | undefined;
+	let lastBranchIndex: number | undefined;
 	for (const section of sections) {
 		const visible = section.tasks.slice(0, MAX_TASKS_PER_SECTION);
 		for (const task of visible) {
 			if (lines.length >= MAX_OVERLAY_LINES) break;
-			const showReadyHint = section.label === "Ready" && !readyHintShown;
-			const hintWidth = READY_ACTION_HINT_SPACING.length + READY_ACTION_HINT.length;
-			const rowWidth = showReadyHint ? Math.max(1, width - hintWidth) : width;
-			const rows = renderTaskRow(section, task, rowWidth);
-			if (showReadyHint && rows.length > 0) {
-				rows[0] = {
-					text: rows[0].text + READY_ACTION_HINT_SPACING + theme.fg("dim", READY_ACTION_HINT),
-					visibleLength: rows[0].visibleLength + hintWidth,
-				};
-				readyHintShown = true;
-			}
+			const rows = renderTaskRow(section, task, width);
+			if (rows.length > 0) lastBranchIndex = lines.length;
 			for (const row of rows) {
 				if (lines.length >= MAX_OVERLAY_LINES) break;
 				lines.push(row.text);
 			}
+			// Reserve a subordinate line after the target's complete wrapped title.
+			// Its outer connector depends on whether another branch fits below it.
+			if (section.label === "Ready" && !readyLegendShown) {
+				if (rows.length > 0 && lines.length < MAX_OVERLAY_LINES) {
+					legendIndex = lines.length;
+					lines.push("");
+				}
+				readyLegendShown = true;
+			}
 		}
 		const remaining = section.tasks.length - visible.length;
 		if (remaining > 0 && lines.length < MAX_OVERLAY_LINES) {
+			lastBranchIndex = lines.length;
 			lines.push(fitStyled(theme, width, "dim", "├─", `${remaining} more ${section.label.toLowerCase()}`));
 		}
 		if (lines.length >= MAX_OVERLAY_LINES) break;
 	}
 
-	const last = lines.length - 1;
-	if (last > 0) lines[last] = lines[last].replace("├─", "└─");
+	if (lastBranchIndex !== undefined) {
+		lines[lastBranchIndex] = lines[lastBranchIndex].replace("├─", "└─");
+	}
+	if (legendIndex !== undefined) {
+		const continued = lastBranchIndex !== undefined && lastBranchIndex > legendIndex;
+		const prefix = continued ? "│    ↳ " : "     ↳ ";
+		lines[legendIndex] = theme.fg("dim", truncateText(prefix + READY_ACTION_LEGEND, width));
+	}
 	return lines;
 }
 
@@ -328,10 +367,6 @@ function overlaySections(snapshot: OverlaySnapshot): OverlaySection[] {
 		{ label: "Ready", icon: "○", color: "accent", tasks: snapshot.ready },
 		{ label: "Stale", icon: "◇", color: "warning", tasks: snapshot.stale },
 	];
-}
-
-function formatVersionLabel(stdout: string): string {
-	return stdout.trim().replace(/^tl\s+version\s+/i, "tl ") || FALLBACK_VERSION_LABEL;
 }
 
 function fitStyled(theme: Theme, width: number, color: OverlayColor, prefix: string, text: string): string {

@@ -94,11 +94,12 @@ test("extension registers current tools, slash commands, and shortcuts", () => {
 
 	assert.deepEqual([...tools.keys()], ["tl_bulk_create"]);
 	assert.equal(tools.get("tl_bulk_create").label, "tl:bulk:create");
-	assert.equal(shortcuts.size, 4);
+	assert.equal(shortcuts.size, 5);
 	assert.equal(shortcuts.get("alt+l").description, "Open Task Ledger board");
 	assert.equal(shortcuts.get("alt+t").description, "Toggle Task Ledger overlay");
 	assert.equal(shortcuts.get("alt+i").description, "Implement top ready Task Ledger task");
 	assert.equal(shortcuts.get("alt+r").description, "Refine top ready Task Ledger task");
+	assert.equal(shortcuts.get("alt+p").description, "Plan top ready Task Ledger task");
 	assert.deepEqual(handlers.map((h) => h.event), [
 		"session_start",
 		"before_agent_start",
@@ -116,6 +117,7 @@ test("Alt+T toggles the live task ledger overlay", async () => {
 	const { handlers, shortcuts } = registerExtension({
 		exec: async (cmd, args) => {
 			calls.push({ cmd, args });
+			if (args.includes("--version")) return { code: 0, stdout: "tl version 1.0.0", stderr: "" };
 			if (args.includes("ready")) return { code: 0, stdout: taskJson("task-ready"), stderr: "" };
 			if (args.includes("in_progress") || args.includes("blocked") || args.includes("pending_human") || args.includes("stale")) return { code: 0, stdout: "[]", stderr: "" };
 			throw new Error(`unexpected args: ${args.join(" ")}`);
@@ -206,6 +208,32 @@ test("Alt+r sends refine request for top ready task without claiming", async () 
 	assert.deepEqual(notifications.at(-1), { message: "Sent refine request for task-refine to the agent.", level: "info" });
 });
 
+test("Alt+p sends plan request for top ready task without claiming", async () => {
+	const cwd = mkdtempSync(join(tmpdir(), "pi-tl-test-"));
+	mkdirSync(join(cwd, ".tl"));
+	const calls = [];
+	const sentMessages = [];
+	const { handlers, shortcuts } = registerExtension({
+		exec: async (cmd, args) => {
+			calls.push({ cmd, args });
+			if (args.includes("--version")) return { code: 0, stdout: "tl version 1.0.0", stderr: "" };
+			if (args.includes("ready")) return { code: 0, stdout: taskJson("task-plan"), stderr: "" };
+			return { code: 0, stdout: "[]", stderr: "" };
+		},
+		sendUserMessage: (message, options) => sentMessages.push({ message, options }),
+	});
+	const { ctx, notifications } = makeCommandContext();
+	ctx.cwd = cwd;
+
+	await handlers.find((h) => h.event === "session_start").handler({}, ctx);
+	await shortcuts.get("alt+p").handler(ctx);
+
+	assert.equal(calls.some((call) => call.args.includes("claim")), false);
+	assert.equal(sentMessages.length, 1);
+	assert.match(sentMessages[0].message, /Plan implementation for task task-plan/);
+	assert.deepEqual(notifications.at(-1), { message: "Sent plan request for task-plan to the agent.", level: "info" });
+});
+
 test("Alt+i notifies when cached overlay snapshot has no ready task", async () => {
 	const cwd = mkdtempSync(join(tmpdir(), "pi-tl-test-"));
 	mkdirSync(join(cwd, ".tl"));
@@ -234,7 +262,7 @@ test("session start renders a live task ledger overlay when a ledger exists", as
 	const { handlers } = registerExtension({
 		exec: async (cmd, args) => {
 			calls.push({ cmd, args });
-			if (args.includes("--version")) return { code: 0, stdout: "tl version 0.6.0-test", stderr: "" };
+			if (args.includes("--version")) return { code: 0, stdout: "tl version 1.0.0", stderr: "" };
 			if (args.includes("ready")) return { code: 0, stdout: taskJson("task-ready"), stderr: "" };
 			if (args.includes("in_progress")) return { code: 0, stdout: taskJson("task-active"), stderr: "" };
 			if (args.includes("blocked") || args.includes("pending_human") || args.includes("stale")) return { code: 0, stdout: "[]", stderr: "" };
@@ -256,9 +284,9 @@ test("session start renders a live task ledger overlay when a ledger exists", as
 
 	await handlers.find((h) => h.event === "session_start").handler({}, ctx);
 
-	assert.equal(calls.length, 6);
+	assert.equal(calls.length, 7);
 	assert.ok(calls.every((call) => call.args[1] === "never"));
-	assert.deepEqual(statuses.at(-1), { key: "pi-tl", value: "tl 0.6.0-test: ○1 ◐1" });
+	assert.deepEqual(statuses.at(-1), { key: "pi-tl", value: "tl 1.0.0: ○1 ◐1" });
 	const widget = widgets.get("pi-tl-overlay");
 	assert.equal(widget.options.placement, "aboveEditor");
 	const component = widget.value({ requestRender: () => {} }, testTheme);

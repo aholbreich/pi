@@ -86,6 +86,19 @@ export default function taskLedgerExtension(pi: ExtensionAPI): void {
 		},
 	});
 
+	pi.registerShortcut("alt+p", {
+		description: "Plan top ready Task Ledger task",
+		handler: async (ctx) => {
+			const id = overlay.firstReadyTaskId();
+			if (!id) {
+				ctx.ui.notify("No ready task available for Alt+p.", "info");
+				return;
+			}
+			pi.sendUserMessage(buildTaskWorkflowPrompt(id, "Plan only"), ctx.isIdle() ? undefined : { deliverAs: "followUp" });
+			ctx.ui.notify(`Sent plan request for ${id} to the agent.`, "info");
+		},
+	});
+
 	registerTlTools(pi);
 	registerTlCommands(pi, async (ctx) => overlay.refresh(ctx));
 }

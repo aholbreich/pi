@@ -1,10 +1,11 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { openTaskLedgerBoard, type BoardSelection } from "./board.js";
-import { runTl } from "./cli.js";
+import { getTlVersion, isTlAvailable, isTlVersionCompatible, MIN_TL_VERSION, runTl } from "./cli.js";
 import { hasLedger } from "./ledger.js";
 import { buildCapturePrompt, buildTriagePrompt, buildTaskWorkflowPrompt, workflowActionForBoardSelection } from "./prompts.js";
 
 const TL_BOARD_SHORTCUT = "alt+l";
+const TL_INSTALL_GUIDE = "https://github.com/aholbreich/tl#installation-options";
 
 /**
  * Register user-facing slash commands.
@@ -59,17 +60,35 @@ export function registerTlCommands(pi: ExtensionAPI, onLedgerChanged?: (ctx: Ext
 	pi.registerCommand("tl-init", {
 		description: "Initialize task ledger in this repository after confirmation",
 		handler: async (_args, ctx) => {
+			if (!await isTlAvailable(pi, ctx)) {
+				ctx.ui.notify(`Cannot run the tl CLI on PATH. Install or repair it, then retry /tl-init. See ${TL_INSTALL_GUIDE}`, "error");
+				return;
+			}
+
+			const version = await getTlVersion(pi, ctx);
+			if (version === null) {
+				ctx.ui.notify(`Cannot verify tl version compatibility (minimum ${MIN_TL_VERSION}). Initialization can still proceed. See ${TL_INSTALL_GUIDE}`, "warning");
+			} else if (!isTlVersionCompatible(version)) {
+				ctx.ui.notify(`tl ${version} is older than the supported minimum ${MIN_TL_VERSION}. Upgrade using ${TL_INSTALL_GUIDE}. Initialization can still proceed.`, "warning");
+			}
+
 			if (hasLedger(ctx)) {
 				ctx.ui.notify("task ledger is already initialized in this repository.", "info");
 				return;
 			}
 
-			const ok = await ctx.ui.confirm("Initialize task ledger?", `Run tl init in ${ctx.cwd}? This will create .taskledger/.`);
+			const ok = await ctx.ui.confirm("Initialize task ledger?", `Run tl init in ${ctx.cwd}? This will create .tl/.`);
 			if (!ok) return;
 
-			const run = await runTl(pi, ctx, ["init"], { color: ctx.hasUI ? "always" : "never" });
-			if (run.exitCode !== 0) {
-				ctx.ui.notify(run.stderr.trim() || run.stdout.trim() || `tl init failed with exit code ${run.exitCode}`, "error");
+			let run;
+			try {
+				run = await runTl(pi, ctx, ["init"], { color: ctx.hasUI ? "always" : "never" });
+			} catch (error) {
+				ctx.ui.notify(`tl init failed: ${error instanceof Error ? error.message : String(error)}`, "error");
+				return;
+			}
+			if (run.exitCode !== 0 || run.killed) {
+				ctx.ui.notify(run.stderr.trim() || (run.killed ? "tl init was cancelled or timed out." : run.stdout.trim() || `tl init failed with exit code ${run.exitCode}`), "error");
 				return;
 			}
 			ctx.ui.setStatus("pi-tl", "tl");

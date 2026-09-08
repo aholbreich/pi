@@ -88,16 +88,93 @@ test("renders task title", () => {
 	assert.match(lines.join("\n"), /Fix login redirect loop/);
 });
 
-test("renders Alt+i/Alt+r action hint on first ready task only", () => {
+test("renders the compact action legend below the first ready task only", () => {
 	const lines = render({ ...EMPTY, ready: [task("t1", "First ready"), task("t2", "Second ready")] });
 	const joined = lines.join("\n");
-	assert.match(joined, /t1.*\[Alt\+i\]Impl \[Alt\+r\]Ref/);
-	assert.doesNotMatch(joined, /t2.*\[Alt\+i\]Impl \[Alt\+r\]Ref/);
+	assert.match(joined, /Alt: i implement · r refine · p plan/);
+	assert.doesNotMatch(joined, /\[Alt\+i\]Impl/);
+	// Legend appears once (right after t1, not again after t2).
+	const legendIndex = lines.findIndex((line) => line.includes("Alt: i implement"));
+	assert.ok(legendIndex > 0);
+	assert.match(lines[legendIndex - 1], /t1/);
+	assert.equal(lines.filter((line) => line.includes("Alt: i implement")).length, 1);
 });
 
-test("does not render Alt+i/Alt+r action hint when there are no ready tasks", () => {
+test("does not render the action legend when there are no ready tasks", () => {
 	const lines = render({ ...EMPTY, inProgress: [task("t1", "Active task")] });
-	assert.doesNotMatch(lines.join("\n"), /\[Alt\+i\]Impl \[Alt\+r\]Ref/);
+	assert.doesNotMatch(lines.join("\n"), /Alt: i implement/);
+});
+
+test("screenshot layout nests actions beneath the first Ready task, not Pending or the next Ready", () => {
+	const lines = render({
+		...EMPTY,
+		pendingHuman: [task("task-pjt", "Plan tree feature support")],
+		ready: [task("task-ccv", "Human review"), task("task-ll9", "Layout testing")],
+	});
+	assert.deepEqual(lines.slice(1), [
+		"├─ ? task-pjt ▲ Plan tree feature support",
+		"├─ ○ task-ccv ▲ Human review",
+		"│    ↳ Alt: i implement · r refine · p plan",
+		"└─ ○ task-ll9 ▲ Layout testing",
+	]);
+});
+
+test("the legend follows the complete wrapped target without claiming the last task branch", () => {
+	const title = "Review all task actions and their complete end-to-end behavior including keyboard shortcuts";
+	const lines = render({ ...EMPTY, ready: [task("t1", title)] }, 55);
+	const legendIndex = lines.findIndex((line) => line.includes("Alt:"));
+	assert.ok(legendIndex > 2, "fixture must wrap the target title");
+	assert.match(lines[1], /^└─ ○ t1/);
+	assert.equal(lines.slice(1, legendIndex).map((line) => line.slice(10).trim()).join(" "), title);
+	assert.match(lines[legendIndex], /^     ↳ Alt:/);
+	assert.ok(lines.every((line) => line.length <= 55));
+});
+
+test("the legend keeps a connector when a later section or overflow entry follows", () => {
+	const lines = render({
+		...EMPTY,
+		ready: [task("t1", "Review")],
+		stale: Array.from({ length: 4 }, (_, i) => task(`s${i}`, "Expired claim")),
+	});
+	assert.equal(lines[2], "│    ↳ Alt: i implement · r refine · p plan");
+	assert.match(lines.at(-1), /^└─ 1 more stale$/);
+});
+
+test("a legend at the line limit is nested and does not leave a dangling outer connector", () => {
+	const lines = render({
+		ready: [task("t1", "Review"), task("t2", "Later")],
+		inProgress: Array.from({ length: 3 }, (_, i) => task(`a${i}`, "Active")),
+		blocked: Array.from({ length: 3 }, (_, i) => task(`b${i}`, "Blocked")),
+		pendingHuman: Array.from({ length: 3 }, (_, i) => task(`p${i}`, "Pending")),
+		stale: [],
+	});
+	assert.equal(lines.length, 12);
+	assert.match(lines[10], /^└─ ○ t1/);
+	assert.equal(lines[11], "     ↳ Alt: i implement · r refine · p plan");
+	assert.ok(!lines.some((line) => line.includes("t2")));
+});
+
+test("a Ready task hidden by the line limit does not leave an orphan legend", () => {
+	const lines = render({
+		...EMPTY,
+		inProgress: [task("a1", "Review pending implementation work ".repeat(30))],
+		ready: [task("t1", "Review")],
+	});
+	assert.equal(lines.length, 12);
+	assert.doesNotMatch(lines.join("\n"), /Alt:|t1/);
+});
+
+test("nested legend stays dim and truncates within narrow widths", () => {
+	const { renderOverlayLines } = loadOverlay();
+	const markedTheme = { ...theme, fg: (color, text) => `<${color}>${text}</${color}>` };
+	for (const width of [20, 30, 40, 80]) {
+		const lines = renderOverlayLines({ ...EMPTY, ready: [task("t1", "Review")] }, markedTheme, width, renderTaskRow);
+		const legend = lines.at(-1);
+		assert.match(legend, /^<dim>     ↳ Alt:.*<\/dim>$/);
+		const text = legend.replace(/<\/?dim>/g, "");
+		assert.ok(text.length <= width);
+		if (width < 41) assert.ok(text.endsWith("…"));
+	}
 });
 
 // ---------------------------------------------------------------------------
@@ -149,10 +226,11 @@ test("shows 'N more' indicator for sections with excess tasks", () => {
 	assert.match(lines.join("\n"), /3 more/);
 });
 
-test("last visible line uses └─ instead of ├─", () => {
+test("the last task branch closes above its subordinate action legend", () => {
 	const lines = render({ ...EMPTY, ready: [task("t1", "Single task")] });
-	assert.match(lines[lines.length - 1], /└─/);
-	assert.doesNotMatch(lines[lines.length - 1], /├─/);
+	assert.match(lines[1], /^└─ ○ t1/);
+	assert.equal(lines[2], "     ↳ Alt: i implement · r refine · p plan");
+	assert.doesNotMatch(lines.join("\n"), /├─/);
 });
 
 // ---------------------------------------------------------------------------
