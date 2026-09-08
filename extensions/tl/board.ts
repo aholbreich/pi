@@ -435,29 +435,58 @@ export class TaskLedgerBoardComponent {
 	}
 
 	private summaryLine(fullWidth: number): string {
-		const sections = (this.viewMode === "all" ? this.sections : this.sections.filter(isFocusedSection))
-			.map((section) => ({ ...section, count: section.tasks.filter((task) => typeof task.id === "string").length }))
-			.filter((section) => section.count > 0);
-		if (sections.length === 0) return this.panelLine(fullWidth, "No visible tasks", "dim");
-
-		let visibleLength = 0;
-		const rawParts: string[] = [];
-		const styledParts: string[] = [];
-		for (const section of sections) {
-			const raw = `${section.icon} ${section.label} ${section.count}`;
-			if (styledParts.length > 0) {
-				rawParts.push(" · ");
-				styledParts.push(this.theme.fg("dim", " · "));
-				visibleLength += 3;
-			}
-			rawParts.push(raw);
-			styledParts.push(this.theme.fg(this.colorForSection(section.label), raw));
-			visibleLength += raw.length;
-		}
+		const entries = this.sections.map((section) => ({
+			section,
+			count: section.tasks.filter((task) => typeof task.id === "string").length,
+		}));
+		if (entries.length === 0) return this.panelLine(fullWidth, "No visible tasks", "dim");
 
 		const innerWidth = Math.max(0, fullWidth - 4);
-		if (visibleLength > innerWidth) return this.panelLine(fullWidth, rawParts.join(""), "dim");
-		return this.panelStyledLine(fullWidth, styledParts.join(""), visibleLength);
+		const segmentFor = (entry: { section: BoardSection; count: number }): { text: string; color: PanelColor } => ({
+			text: `${entry.section.icon} ${entry.section.label} ${entry.count}`,
+			color: this.colorForSection(entry.section.label),
+		});
+		const joinSegments = (segments: Array<{ text: string; color: PanelColor }>): { styled: string; visible: number } => {
+			let styled = "";
+			let visible = 0;
+			segments.forEach((segment, index) => {
+				if (index > 0) {
+					styled += this.theme.fg("dim", " · ");
+					visible += 3;
+				}
+				styled += this.theme.fg(segment.color, segment.text);
+				visible += segment.text.length;
+			});
+			return { styled, visible };
+		};
+
+		const all = joinSegments(entries.map(segmentFor));
+		if (all.visible <= innerWidth) {
+			return this.panelStyledLine(fullWidth, all.styled, all.visible);
+		}
+
+		// Overflow: keep the leading sections that fit plus the trailing
+		// Done/Cancelled pair, marking the elided middle with a dim ellipsis.
+		const ellipsis: { text: string; color: PanelColor } = { text: "…", color: "dim" };
+		const tail = entries.slice(-2).map(segmentFor);
+		const tailVisible = joinSegments([ellipsis, ...tail]).visible;
+		if (tailVisible + 3 > innerWidth) {
+			return this.panelLine(fullWidth, entries.map(segmentFor).map((segment) => segment.text).join(" · "), "dim");
+		}
+
+		const headBudget = innerWidth - tailVisible - 3;
+		const head: Array<{ text: string; color: PanelColor }> = [];
+		let used = 0;
+		for (const entry of entries.slice(0, -2)) {
+			const segment = segmentFor(entry);
+			const cost = segment.text.length + (head.length > 0 ? 3 : 0);
+			if (used + cost > headBudget) break;
+			head.push(segment);
+			used += cost;
+		}
+
+		const result = joinSegments([...head, ellipsis, ...tail]);
+		return this.panelStyledLine(fullWidth, result.styled, result.visible);
 	}
 
 	private panelLine(fullWidth: number, text: string, color: PanelColor, selected = false): string {

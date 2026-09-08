@@ -104,3 +104,23 @@ Feature: Task Ledger board navigation
     When the user opens the details of task "task-short"
     Then the board shows "task-short full details"
     And the board shows no scroll indicator
+
+  Scenario: Summary line shows all section counts including closed sections in focused mode
+    Given a task ledger repository has the following tasks:
+      | id         | title    | status | priority |
+      | task-ready | Deploy   | open   | high     |
+      | task-done  | Shipped  | done   | medium   |
+    And the task ledger board overlay is opened
+    Then the board summary shows a "Ready" count of 1
+    And the board summary shows a "Done" count of 1
+    And the board summary shows a "Cancelled" count of 0
+
+  Scenario: The summary line is not affected by the focused/all toggle
+    Given a task ledger repository has the following tasks:
+      | id         | title    | status | priority |
+      | task-ready | Deploy   | open   | high     |
+      | task-done  | Shipped  | done   | medium   |
+    When the task ledger board overlay is opened
+    And the user presses the "a" key
+    Then the board summary shows a "Done" count of 1
+    And the board summary shows a "Cancelled" count of 0

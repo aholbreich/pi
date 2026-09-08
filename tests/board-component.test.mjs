@@ -543,6 +543,57 @@ test("focused view includes waiting and stale sections but excludes closed tasks
 });
 
 // ---------------------------------------------------------------------------
+// Summary line
+// ---------------------------------------------------------------------------
+
+test("summary includes Done and Cancelled counts in focused mode", () => {
+	const c = createComponent({
+		sections: [
+			section("Ready", "○", ["t1"]),
+			section("Done", "✓", ["t2", "t3"]),
+			section("Cancelled", "✗", []),
+		],
+	});
+	const lines = renderLines(c);
+	assert.match(lines, /○ Ready 1/);
+	assert.match(lines, /✓ Done 2/);
+	assert.match(lines, /✗ Cancelled 0/);
+});
+
+test("summary line is unaffected by the focused/all toggle", () => {
+	const c = createComponent({
+		sections: [
+			section("Ready", "○", ["t1"]),
+			section("Done", "✓", ["t2"]),
+		],
+	});
+	const before = c.render(80)[2];
+	c.handleInput("a");
+	const after = c.render(80)[2];
+	assert.equal(after, before);
+});
+
+test("overflowing summary keeps Done and Cancelled and elides the middle", () => {
+	const c = createComponent({
+		sections: [
+			section("In progress", "◐", ["t1"]),
+			section("Ready", "○", ["t2"]),
+			section("Waiting", "◌", ["t3"]),
+			section("Blocked", "▲", ["t4"]),
+			section("Pending human", "?", ["t5"]),
+			section("Stale claims", "◇", ["t6"]),
+			section("Other", "·", ["t7"]),
+			section("Done", "✓", ["t8"]),
+			section("Cancelled", "✗", ["t9"]),
+		],
+	});
+	const summary = c.render(80)[2];
+	assert.match(summary, /…/);
+	assert.match(summary, /✓ Done 1/);
+	assert.match(summary, /✗ Cancelled 1/);
+});
+
+// ---------------------------------------------------------------------------
 // Empty sections
 // ---------------------------------------------------------------------------
 
@@ -552,9 +603,9 @@ test("board with no tasks renders empty state gracefully", () => {
 	assert.match(renderLines(c), /No visible tasks/);
 });
 
-test("board with section that has zero tasks renders empty state", () => {
+test("board with a zero-task section still shows its zero count", () => {
 	const c = createComponent({ sections: [section("Ready", "○", [])] });
-	assert.match(renderLines(c), /No visible tasks/);
+	assert.match(renderLines(c), /○ Ready 0/);
 });
 
 // ---------------------------------------------------------------------------

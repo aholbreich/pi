@@ -337,6 +337,13 @@ Then("the board shows no scroll indicator", function (this: BoardWorld) {
   assert.doesNotMatch(this.component.render(100).join("\n"), /Showing \d+-\d+ of \d+ lines/);
 });
 
+Then("the board summary shows a {string} count of {int}", function (this: BoardWorld, label: string, count: number) {
+  assert.ok(this.component);
+  const text = this.component.render(100).join("\n");
+  const icon = sectionIcon(label);
+  assert.ok(text.includes(`${icon} ${label} ${count}`), `expected summary to include "${icon} ${label} ${count}"`);
+});
+
 Then("the task ledger board overlay is visible", function (this: BoardWorld) {
   assert.ok(this.component);
   const lines = this.component.render(100).join("\n");

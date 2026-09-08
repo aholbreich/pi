@@ -75,7 +75,7 @@ test("completed prerequisites do not turn a ready task into a waiting task", asy
 	const ready = [task("task-followup", "open", [completed.id]), task("task-other")];
 	const { component } = await openBoard([...ready, completed], { ready });
 	assert.match(component.render(120).join("\n"), /○ task-followup/);
-	assert.doesNotMatch(component.render(120).join("\n"), /Waiting/);
+	assert.doesNotMatch(component.render(120).join("\n"), /◌.*task-followup/);
 });
 
 test("unknown statuses remain reachable in all view", async () => {
