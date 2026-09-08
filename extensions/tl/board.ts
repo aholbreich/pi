@@ -133,6 +133,7 @@ export class TaskLedgerBoardComponent {
 	private selectedTaskIndex = 0;
 	private scrollOffset = 0;
 	private detailsScrollOffset = 0;
+	private lastDetailsWidth = BOARD_OVERLAY_WIDTH;
 	private mode: BoardMode = "list";
 	private viewMode: BoardViewMode = "focused";
 	private detailsTaskId: string | undefined;
@@ -334,6 +335,35 @@ export class TaskLedgerBoardComponent {
 		return (this.detailsText ?? "").split(/\r?\n/);
 	}
 
+	/** Wrap detail body lines at word boundaries to fit the view width. */
+	private wrapDetailLines(innerWidth: number): string[] {
+		const budget = Math.max(1, innerWidth);
+		const lines: string[] = [];
+		for (const line of this.detailLines()) {
+			if (line.length === 0) {
+				lines.push("");
+				continue;
+			}
+			let remaining = line;
+			while (remaining.length > 0) {
+				if (remaining.length <= budget) {
+					lines.push(remaining);
+					break;
+				}
+				let breakAt = budget;
+				for (let i = budget; i > 0; i--) {
+					if (remaining[i] === " ") {
+						breakAt = i;
+						break;
+					}
+				}
+				lines.push(remaining.slice(0, breakAt).trimEnd());
+				remaining = remaining.slice(breakAt).trimStart();
+			}
+		}
+		return lines;
+	}
+
 	private renderDetails(width: number): string[] {
 		const selected = this.selectedEntry();
 		const header = "Task details";
@@ -351,10 +381,11 @@ export class TaskLedgerBoardComponent {
 			lines.push(this.panelLine(width, header, "accent", true));
 		}
 
-		const allLines = this.detailLines();
-		const total = allLines.length;
+		this.lastDetailsWidth = width;
+		const wrapped = this.wrapDetailLines(width - 4);
+		const total = wrapped.length;
 		const offset = Math.min(this.detailsScrollOffset, Math.max(0, total - DETAILS_VISIBLE_LINES));
-		const visible = allLines.slice(offset, offset + DETAILS_VISIBLE_LINES);
+		const visible = wrapped.slice(offset, offset + DETAILS_VISIBLE_LINES);
 		for (const line of visible) lines.push(this.panelLine(width, line, this.detailsLoading ? "warning" : "text"));
 
 		if (total > DETAILS_VISIBLE_LINES) {
@@ -388,7 +419,8 @@ export class TaskLedgerBoardComponent {
 	}
 
 	private scrollDetails(delta: number): void {
-		const maxOffset = Math.max(0, this.detailLines().length - DETAILS_VISIBLE_LINES);
+		const total = this.wrapDetailLines(this.lastDetailsWidth - 4).length;
+		const maxOffset = Math.max(0, total - DETAILS_VISIBLE_LINES);
 		this.detailsScrollOffset = Math.max(0, Math.min(maxOffset, this.detailsScrollOffset + delta));
 		this.tui.requestRender();
 	}

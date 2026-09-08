@@ -277,6 +277,28 @@ test("short details show no scroll indicator", async () => {
 	assert.doesNotMatch(lines, /Showing \d+-\d+ of \d+ lines/);
 });
 
+test("long detail lines wrap to view width instead of truncating", async () => {
+	const longLine = "word ".repeat(50).trim(); // 249 chars, single source line
+	const c = createComponent({ sections: [section("Ready", "○", ["t1"])], loadDetails: async () => longLine });
+	c.handleInput("\r");
+	await setImmediate();
+	const lines = renderLines(c);
+	assert.doesNotMatch(lines, /…/);
+	const wordLines = lines.split("\n").filter((l) => l.includes("word"));
+	assert.ok(wordLines.length >= 3, "expected the long line to wrap onto multiple lines");
+});
+
+test("details scroll window counts wrapped lines", async () => {
+	const longLine = "word ".repeat(50).trim();
+	const details = Array.from({ length: 8 }, () => longLine).join("\n");
+	const c = createComponent({ sections: [section("Ready", "○", ["t1"])], loadDetails: async () => details });
+	c.handleInput("\r");
+	await setImmediate();
+	const lines = renderLines(c);
+	assert.match(lines, /Showing 1-18 of \d+ lines/);
+	assert.doesNotMatch(lines, /Showing 1-18 of 8 lines/);
+});
+
 // ---------------------------------------------------------------------------
 // Escape — back to list / close
 // ---------------------------------------------------------------------------
