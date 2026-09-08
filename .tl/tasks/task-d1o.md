@@ -1,11 +1,11 @@
 ---
 id: task-d1o
-title: Audit and improve README documentation
-status: open
+title: Verify README accuracy and clarify setup and usage
+status: done
 priority: medium
 type: chore
 created_at: 2026-06-01T19:57:16Z
-updated_at: 2026-06-03T18:12:52Z
+updated_at: 2026-09-08T17:38:09Z
 created_by: human
 assignee: null
 depends_on: []
@@ -23,17 +23,23 @@ references:
 
 ## Description
 
-Review `README.md` and make concise documentation improvements where needed.
+Audit `README.md` against current extension behavior, package scripts, and relevant Pi/tl documentation. Make focused corrections for first-time users; avoid a broad rewrite.
 
 Scope:
-- Verify accuracy against current project behavior and commands.
-- Improve clarity for first-time users.
-- Check installation/setup guidance.
-- Check command documentation and examples.
-- Confirm screenshot placement/context is helpful.
-- Improve developer workflow notes if incomplete or outdated.
+- Verify prerequisites, installation, initialization, and local-development instructions.
+- Replace machine-specific paths with clear, consistent examples.
+- Verify commands, shortcuts, board/overlay behavior, and agent-tool guidance.
+- Check screenshot context and developer workflow instructions.
+- Keep implementation README-only; track screenshot replacement or code fixes separately if needed. If screenshots are needed and cannot be produced by the agent, ask the user to provide them.
 
 Acceptance criteria:
-- README content is accurate and easier to follow.
-- Any edits are focused and avoid broad rewrites.
-- Relevant docs/lint checks are run if available.
+- Documented commands and behavior agree with their authoritative sources.
+- Setup examples clearly distinguish installing the extension, installing `tl`, and initializing a ledger.
+- Local-path examples are portable and consistent.
+- Screenshot context and development instructions are accurate.
+- Available relevant checks are run, with results and verification limitations recorded in the task.
+
+## Notes
+
+- 2026-09-08T17:38:09Z [pi-agent] note: Implemented README-only audit: separate Pi/tl/extension setup, root-only .tl detection, portable checkout paths, first-task flow, missing /tl-triage and Alt+I/Alt+R, accurate turn-end refresh semantics, details-only lifecycle actions, scrolling and focused/all behavior, BDD/development and release links. Reviewed source, package scripts, installed Pi 0.85.1 README/packages/extensions docs and example, upstream tl checkout README, and local tl 0.9.0 CLI help. Existing screenshot retained as an explicitly labeled earlier-layout illustration; no replacement image or code changes made. Non-blocking code finding: /tl-init confirmation in extensions/tl/commands.ts incorrectly says .taskledger/; existing task-28g is the relevant init-flow follow-up.
+- 2026-09-08T17:38:09Z [pi-agent] note: Verification: npm run check passes; npm test 187/187 passes; npm run test:bdd has 13 passing board scenarios/57 steps and the pre-existing 5 undefined title-wrap scenarios/26 steps (task-gbi), documented in README. Cucumber warns Node v26.7.0 is untested. Tried positional feature selection; current Cucumber merges configured paths, so removed that misleading targeted-test suggestion. git diff --check passes; all local Markdown targets exist; shell code blocks pass bash -n; external Pi/tl/project URLs return HTTP 200; release-notes stdout command works. No Markdown lint script configured. Installation commands verified against documentation/manifests rather than rerunning installs or changing Pi settings; no fresh interactive screenshot captured. No new behavior or feature files for this documentation-only task.

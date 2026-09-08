@@ -293,3 +293,8 @@
 {"time":"2026-09-08T17:16:43Z","event":"claimed","task_id":"task-63v","actor":"agent-name"}
 {"time":"2026-09-08T17:19:57Z","event":"note_added","task_id":"task-63v","actor":"agent-name"}
 {"time":"2026-09-08T17:19:57Z","event":"closed","task_id":"task-63v","actor":"agent-name"}
+{"time":"2026-09-08T17:34:29Z","event":"refined","task_id":"task-d1o"}
+{"time":"2026-09-08T17:34:51Z","event":"claimed","task_id":"task-d1o","actor":"pi-agent"}
+{"time":"2026-09-08T17:38:09Z","event":"note_added","task_id":"task-d1o","actor":"pi-agent"}
+{"time":"2026-09-08T17:38:09Z","event":"note_added","task_id":"task-d1o","actor":"pi-agent"}
+{"time":"2026-09-08T17:38:09Z","event":"closed","task_id":"task-d1o","actor":"pi-agent"}
