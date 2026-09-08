@@ -76,4 +76,11 @@ npm run check
 npm test
 ```
 
+Generate Markdown release notes from commits since the last tag:
+
+```sh
+npm run release-notes                 # print to stdout
+npm run release-notes -- -o NOTES.md  # write to a file
+```
+
 Pi loads TypeScript extensions directly, so no build step is required.

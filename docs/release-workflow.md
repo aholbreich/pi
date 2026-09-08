@@ -6,10 +6,13 @@
 # 1. See what's recommended
 npm run release:dry
 
-# 2. Bump & tag (hook validates main branch + clean tree)
+# 2. Generate release notes from commits since the last tag
+npm run release-notes
+
+# 3. Bump & tag (hook validates main branch + clean tree)
 npm version patch   # or minor / major
 
-# 3. Push → CI publishes to npm
+# 4. Push → CI publishes to npm
 git push --follow-tags
 ```
 
@@ -18,6 +21,7 @@ git push --follow-tags
 | Step | What | Where |
 |------|------|-------|
 | Determine bump | Reads git log since last `v*` tag, counts `feat:`/`fix:`/`BREAKING CHANGE:` | `scripts/determine-version.js` |
+| Generate notes | Markdown release notes grouped by conventional-commit type | `scripts/release-notes.js` (`npm run release-notes`) |
 | Validate | Blocks if not on `main` or tree is dirty | `package.json` `scripts.preversion` hook (`scripts/pre-version.js`) |
 | Bump + tag | `npm version` updates `package.json` version + creates `vX.Y.Z` git tag | Built-in |
 | Publish | Push of `v*` tag triggers CI → `npm publish` | `.github/workflows/publish.yml` |
