@@ -178,7 +178,26 @@ export class TaskLedgerOverlay {
 				this.listTasks(ctx, ["stale", "--json"]),
 			]);
 
-			return { ready, inProgress, blocked, pendingHuman, stale };
+			// Deduplicate: a task with status in_progress but an expired/null claim
+			// can match ready, in_progress, and stale simultaneously. Keep each task
+			// only in the first (most specific) section it appears in, matching the
+			// rendering order in overlaySections: in_progress > blocked > pending > ready > stale.
+			const seen = new Set<string>();
+			const dedup = (list: TaskSummary[]): TaskSummary[] =>
+				list.filter((t) => {
+					const id = typeof t.id === "string" ? t.id : String(t.id ?? "");
+					if (seen.has(id)) return false;
+					seen.add(id);
+					return true;
+				});
+
+			return {
+				inProgress: dedup(inProgress),
+				blocked: dedup(blocked),
+				pendingHuman: dedup(pendingHuman),
+				ready: dedup(ready),
+				stale: dedup(stale),
+			};
 		} catch (error) {
 			return { ...EMPTY_SNAPSHOT, error: error instanceof Error ? error.message : String(error) };
 		}
